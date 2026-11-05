@@ -1,0 +1,3364 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Question Bank API",
+    "version": "2.0.0",
+    "description": "REST API for a question bank: classes → subjects → chapters, question types and questions, plus paper generation and import/export.\n\n**Encoding.** All text is UTF-8 (Arabic, Bengali, any Unicode) and is Unicode-normalised (NFC) on write. Send `Content-Type: application/json; charset=utf-8`.\n\n**Question types.** Every subject owns its own list of types. A type has a free `name` and a `kind` (`mcq`, `true_false`, `text`) that decides how questions are validated.\n\n**Errors.** Failures return `{\"error\": {\"message\": \"...\"}}` with status 400 (invalid input), 404, 409 (duplicate / in use), 413, 415 or 422.\n\n**Same origin.** If a `frontend/` folder sits next to the server binary it is served at `/`; call the API with relative URLs. CORS is open."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local server (change the port with the PORT environment variable)"
+    },
+    {
+      "url": "/",
+      "description": "Same origin as this document"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Institute",
+      "description": "Name, location and logo shown on generated papers"
+    },
+    {
+      "name": "Classes",
+      "description": "Top-level groups"
+    },
+    {
+      "name": "Subjects",
+      "description": "Belong to a class"
+    },
+    {
+      "name": "Chapters",
+      "description": "Belong to a subject; questions can be assigned to one"
+    },
+    {
+      "name": "Question types",
+      "description": "Per-subject question types (mcq / true_false / text kinds)"
+    },
+    {
+      "name": "Questions",
+      "description": "Questions of a subject"
+    },
+    {
+      "name": "Files",
+      "description": "Uploaded images"
+    },
+    {
+      "name": "Generate",
+      "description": "Build a question paper"
+    },
+    {
+      "name": "Papers",
+      "description": "Saved papers"
+    },
+    {
+      "name": "Export / Import",
+      "description": "Backup, restore and move data (JSON, YAML, SQLite)"
+    },
+    {
+      "name": "System",
+      "description": "Health and documentation"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Health check",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "This API description (OpenAPI 3.0)",
+        "operationId": "openapi",
+        "responses": {
+          "200": {
+            "description": "OpenAPI document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/institute": {
+      "get": {
+        "tags": [
+          "Institute"
+        ],
+        "summary": "Get the institute profile",
+        "operationId": "getInstitute",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Institute"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Institute"
+        ],
+        "summary": "Update name and location",
+        "operationId": "updateInstitute",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstituteUpdate"
+              },
+              "examples": {
+                "bn": {
+                  "value": {
+                    "name": "ঢাকা আদর্শ বিদ্যালয়",
+                    "location": "ঢাকা, বাংলাদেশ"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Institute"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/api/institute/logo": {
+      "put": {
+        "tags": [
+          "Institute"
+        ],
+        "summary": "Upload the logo",
+        "operationId": "uploadLogo",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "logo": {
+                    "type": "string",
+                    "description": "PNG, JPEG, GIF or WebP, max 5 MB",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "logo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Institute"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Institute"
+        ],
+        "summary": "Remove the logo",
+        "operationId": "deleteLogo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Institute"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/classes": {
+      "get": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "List classes",
+        "operationId": "listClasses",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Class"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Create a class",
+        "operationId": "createClass",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassInput"
+              },
+              "examples": {
+                "bn": {
+                  "value": {
+                    "name": "দশম শ্রেণি"
+                  }
+                },
+                "ar": {
+                  "value": {
+                    "name": "الصف العاشر"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Class"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/classes/{id}": {
+      "get": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Get a class",
+        "operationId": "getClass",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Class"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Update a class",
+        "operationId": "updateClass",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Class"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Delete a class",
+        "description": "Also deletes its subjects, chapters, question types and questions.",
+        "operationId": "deleteClass",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/classes/{classId}/subjects": {
+      "get": {
+        "tags": [
+          "Subjects"
+        ],
+        "summary": "List the subjects of a class",
+        "operationId": "listSubjects",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Subject"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Subjects"
+        ],
+        "summary": "Create a subject in a class",
+        "description": "The subject starts with the question types MCQ, True/False and Plain.",
+        "operationId": "createSubject",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClassId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectInput"
+              },
+              "examples": {
+                "bn": {
+                  "value": {
+                    "name": "গণিত",
+                    "code": "M10"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subject"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/subjects/{id}": {
+      "get": {
+        "tags": [
+          "Subjects"
+        ],
+        "summary": "Get a subject",
+        "operationId": "getSubject",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subject"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Subjects"
+        ],
+        "summary": "Update a subject",
+        "operationId": "updateSubject",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subject"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Subjects"
+        ],
+        "summary": "Delete a subject",
+        "description": "Also deletes its chapters, question types and questions.",
+        "operationId": "deleteSubject",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/subjects/{subjectId}/chapters": {
+      "get": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "List chapters of a subject",
+        "description": "Ordered by `position`.",
+        "operationId": "listChapters",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubjectId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Chapter"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "Create a chapter",
+        "operationId": "createChapter",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubjectId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChapterInput"
+              },
+              "examples": {
+                "bn": {
+                  "value": {
+                    "name": "বীজগণিত",
+                    "position": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Chapter"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/chapters/{id}": {
+      "get": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "Get a chapter",
+        "operationId": "getChapter",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Chapter"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "Update a chapter",
+        "operationId": "updateChapter",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChapterUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Chapter"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "Delete a chapter",
+        "description": "Its questions are kept and become chapter-less.",
+        "operationId": "deleteChapter",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/subjects/{subjectId}/question-types": {
+      "get": {
+        "tags": [
+          "Question types"
+        ],
+        "summary": "List the question types of a subject",
+        "operationId": "listQuestionTypes",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubjectId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QuestionType"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Question types"
+        ],
+        "summary": "Create a question type",
+        "operationId": "createQuestionType",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubjectId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionTypeInput"
+              },
+              "examples": {
+                "creative": {
+                  "value": {
+                    "name": "সৃজনশীল",
+                    "kind": "text"
+                  }
+                },
+                "short": {
+                  "value": {
+                    "name": "Short Question",
+                    "kind": "text"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionType"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/question-types/{id}": {
+      "get": {
+        "tags": [
+          "Question types"
+        ],
+        "summary": "Get a question type",
+        "operationId": "getQuestionType",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionType"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Question types"
+        ],
+        "summary": "Rename a type or change its kind",
+        "description": "Changing `kind` is rejected (409) while questions use the type.",
+        "operationId": "updateQuestionType",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionTypeUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionType"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Question types"
+        ],
+        "summary": "Delete a question type",
+        "description": "Rejected (409) while questions use the type.",
+        "operationId": "deleteQuestionType",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/subjects/{subjectId}/questions": {
+      "get": {
+        "tags": [
+          "Questions"
+        ],
+        "summary": "List and filter the questions of a subject",
+        "operationId": "listQuestions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubjectId"
+          },
+          {
+            "name": "chapter_id",
+            "in": "query",
+            "description": "Comma-separated chapter ids; `none` = no chapter (e.g. `1,2,none`)",
+            "schema": {
+              "type": "string"
+            },
+            "example": "1,2"
+          },
+          {
+            "name": "type_id",
+            "in": "query",
+            "description": "Comma-separated question type ids",
+            "schema": {
+              "type": "string"
+            },
+            "example": "3,4"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "Comma-separated kinds: mcq, true_false, text",
+            "schema": {
+              "type": "string"
+            },
+            "example": "mcq,true_false"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Comma-separated type names or kinds",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "difficulty",
+            "in": "query",
+            "description": "Comma-separated: easy, medium, hard",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "Comma-separated language codes",
+            "schema": {
+              "type": "string"
+            },
+            "example": "bn,ar"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search in `text` and `math`",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Create a question",
+        "description": "Send JSON, or `multipart/form-data` to attach a figure (`image`). The type's `kind` decides what is required: `mcq` needs 4 options + `correct_option`, `true_false` needs `answer`, `text` needs nothing extra.",
+        "operationId": "createQuestion",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubjectId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionInput"
+              },
+              "examples": {
+                "mcq_bengali": {
+                  "summary": "MCQ (Bengali)",
+                  "value": {
+                    "type": "MCQ",
+                    "chapter_id": 1,
+                    "text": "সমীকরণ $x^2-5x+6=0$ এর বীজ কত?",
+                    "options": [
+                      "২,৩",
+                      "১,৬",
+                      "২,৪",
+                      "৩,৪"
+                    ],
+                    "correct_option": 1,
+                    "description": "(x-2)(x-3)=0",
+                    "difficulty": "easy",
+                    "lang": "bn"
+                  }
+                },
+                "true_false_bengali": {
+                  "summary": "True/False (Bengali)",
+                  "value": {
+                    "type": "True/False",
+                    "text": "ত্রিভুজের তিন কোণের সমষ্টি ১৮০°।",
+                    "answer": "সত্য",
+                    "lang": "bn"
+                  }
+                },
+                "plain_arabic": {
+                  "summary": "Plain question (Arabic)",
+                  "value": {
+                    "type": "Plain",
+                    "text": "اكتب قانون مساحة الدائرة.",
+                    "math": "A = \\pi r^2",
+                    "answer": "المساحة تساوي ط × نق²",
+                    "description": "قانون أساسي",
+                    "marks": 2,
+                    "lang": "ar"
+                  }
+                },
+                "custom_type": {
+                  "summary": "Custom type, 10 marks",
+                  "value": {
+                    "type_id": 4,
+                    "text": "উদ্দীপকটি পড়ে প্রশ্নগুলোর উত্তর দাও।",
+                    "marks": 10,
+                    "lang": "bn"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionMultipart"
+              },
+              "encoding": {
+                "image": {
+                  "contentType": "image/png, image/jpeg, image/gif, image/webp"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Question"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          }
+        }
+      }
+    },
+    "/api/questions/{id}": {
+      "get": {
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Get a question (with answer and description)",
+        "operationId": "getQuestion",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Question"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Update a question",
+        "operationId": "updateQuestion",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionUpdate"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionUpdateMultipart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Question"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Delete a question",
+        "operationId": "deleteQuestion",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/files/{id}": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Download an uploaded image (figure or logo)",
+        "operationId": "getFile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/gif": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/generate": {
+      "post": {
+        "tags": [
+          "Generate"
+        ],
+        "summary": "Generate a question paper",
+        "description": "Pick questions by hand (`question_ids`), randomly (`random`), or both. Random picking can be limited to several chapters and several question types, with counts per type or per chapter. A pool that is too small fails with 422 unless `allow_fewer` is true.",
+        "operationId": "generatePaper",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateRequest"
+              },
+              "examples": {
+                "by_type": {
+                  "summary": "8 MCQ + 2 plain from chapters 1 and 2",
+                  "value": {
+                    "title": "অর্ধবার্ষিক পরীক্ষা",
+                    "subject_id": 1,
+                    "random": {
+                      "chapter_ids": [
+                        1,
+                        2
+                      ],
+                      "by_type": {
+                        "MCQ": 8,
+                        "Plain": 2
+                      }
+                    },
+                    "shuffle_options": true,
+                    "include_answers": true,
+                    "save": true,
+                    "meta": {
+                      "duration_minutes": 90
+                    }
+                  }
+                },
+                "by_chapter": {
+                  "summary": "5 MCQ from each of three chapters",
+                  "value": {
+                    "subject_id": 1,
+                    "random": {
+                      "kinds": [
+                        "mcq"
+                      ],
+                      "by_chapter": {
+                        "1": 5,
+                        "2": 5,
+                        "3": 5
+                      }
+                    }
+                  }
+                },
+                "mixed": {
+                  "summary": "Hand-picked + random fill from several types",
+                  "value": {
+                    "class_id": 1,
+                    "question_ids": [
+                      12,
+                      15
+                    ],
+                    "random": {
+                      "type_ids": [
+                        1,
+                        2,
+                        4
+                      ],
+                      "difficulty": [
+                        "easy",
+                        "medium"
+                      ],
+                      "count": 10
+                    },
+                    "shuffle_questions": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paper"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Generated and saved (`save: true`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paper"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          }
+        }
+      }
+    },
+    "/api/papers": {
+      "get": {
+        "tags": [
+          "Papers"
+        ],
+        "summary": "List saved papers (newest first)",
+        "operationId": "listPapers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaperSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/papers/{id}": {
+      "get": {
+        "tags": [
+          "Papers"
+        ],
+        "summary": "Get a saved paper",
+        "operationId": "getPaper",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paper"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Papers"
+        ],
+        "summary": "Delete a saved paper",
+        "operationId": "deletePaper",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/export": {
+      "get": {
+        "tags": [
+          "Export / Import"
+        ],
+        "summary": "Export all data",
+        "description": "`sqlite` is a complete database copy (including saved papers); `json`/`yml` use the portable document format.",
+        "operationId": "exportData",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "yml",
+                "yaml",
+                "sqlite"
+              ],
+              "default": "json"
+            }
+          },
+          {
+            "name": "include_files",
+            "in": "query",
+            "description": "JSON/YAML only: embed images as base64",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The export file (`Content-Disposition: attachment`)",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment; filename=\"question-bank-YYYYMMDD.<ext>\""
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Doc"
+                }
+              },
+              "application/x-yaml": {
+                "schema": {
+                  "type": "string",
+                  "description": "Same structure as the JSON document"
+                }
+              },
+              "application/vnd.sqlite3": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/api/import": {
+      "post": {
+        "tags": [
+          "Export / Import"
+        ],
+        "summary": "Import data",
+        "description": "The whole import runs in one transaction: if any record is invalid nothing is changed and the error names the offending record, e.g. `classes[0].subjects[1].questions[3]: ...`.",
+        "operationId": "importData",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "description": "`merge` adds what is missing and skips exact duplicate questions; `replace` first deletes all classes, subjects, chapters, types and questions",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "merge",
+                "replace"
+              ],
+              "default": "merge"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Only needed if auto-detection fails",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "yml",
+                "yaml",
+                "sqlite"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "A `.json`, `.yml` or `.sqlite` export (including files from before chapters/types existed)",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Doc"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "example": "Question not found"
+              }
+            },
+            "required": [
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "description": "Every error response has this shape."
+      },
+      "Institute": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "ঢাকা আদর্শ বিদ্যালয়"
+          },
+          "location": {
+            "type": "string",
+            "example": "ঢাকা, বাংলাদেশ"
+          },
+          "logo_url": {
+            "type": "string",
+            "description": "Fetch it with `GET /api/files/{id}`",
+            "example": "/api/files/3",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "location",
+          "logo_url",
+          "updated_at"
+        ]
+      },
+      "InstituteUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          }
+        },
+        "description": "Send only what you want to change."
+      },
+      "Class": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "দশম শ্রেণি"
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00",
+            "nullable": true
+          },
+          "subject_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "created_at",
+          "updated_at",
+          "subject_count"
+        ]
+      },
+      "ClassInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique",
+            "minLength": 1,
+            "example": "الصف العاشر"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ClassUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "Subject": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "class_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "গণিত"
+          },
+          "code": {
+            "type": "string",
+            "example": "M10"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00",
+            "nullable": true
+          },
+          "question_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "chapter_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "type_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "name",
+          "code",
+          "created_at",
+          "updated_at",
+          "question_count",
+          "chapter_count",
+          "type_count"
+        ]
+      },
+      "SubjectInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique within the class",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "description": "A new subject automatically gets the default question types MCQ, True/False and Plain."
+      },
+      "SubjectUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string"
+          },
+          "class_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "Chapter": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "subject_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "বীজগণিত"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sort order inside the subject"
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00",
+            "nullable": true
+          },
+          "question_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "subject_id",
+          "name",
+          "position",
+          "description",
+          "created_at",
+          "updated_at",
+          "question_count"
+        ]
+      },
+      "ChapterInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique within the subject",
+            "minLength": 1
+          },
+          "position": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Defaults to last"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ChapterUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "position": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "QuestionType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "subject_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "সৃজনশীল"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mcq",
+              "true_false",
+              "text"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00",
+            "nullable": true
+          },
+          "question_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "subject_id",
+          "name",
+          "kind",
+          "created_at",
+          "updated_at",
+          "question_count"
+        ],
+        "description": "A question type owned by one subject. `name` is your label; `kind` decides how its questions are validated."
+      },
+      "QuestionTypeInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique within the subject, case-insensitive",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "description": "`mcq` = 4 options + correct option; `true_false` = answer true/false; `text` = plain, optional model answer",
+            "enum": [
+              "mcq",
+              "true_false",
+              "text"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ]
+      },
+      "QuestionTypeUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "description": "Cannot be changed while questions use the type (409)",
+            "enum": [
+              "mcq",
+              "true_false",
+              "text"
+            ]
+          }
+        }
+      },
+      "QuestionInput": {
+        "type": "object",
+        "properties": {
+          "type_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "One of the subject's question types. Alternative to `type`."
+          },
+          "type": {
+            "type": "string",
+            "description": "Question type **name** (case-insensitive), or a kind (`mcq`, `true_false`, `text`) to use the subject's first type of that kind. If neither `type_id` nor `type` is sent, the subject's first `mcq` type is used."
+          },
+          "chapter_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "Must belong to the same subject. `null` = no chapter.",
+            "nullable": true
+          },
+          "text": {
+            "type": "string",
+            "description": "Question text; may contain inline LaTeX such as `$x^2$`"
+          },
+          "math": {
+            "type": "string",
+            "description": "Display math (LaTeX)"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "`mcq` only: exactly 4 non-empty options (JSON bodies)"
+          },
+          "option_1": {
+            "type": "string",
+            "description": "`mcq` alternative to `options` (use these in multipart/form-data)"
+          },
+          "option_2": {
+            "type": "string"
+          },
+          "option_3": {
+            "type": "string"
+          },
+          "option_4": {
+            "type": "string"
+          },
+          "correct_option": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`mcq` only: 1-4",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "answer": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "description": "`true_false`: true/false (boolean, or text such as `true`, `yes`, `সত্য`, `মিথ্যা`, `صح`, `خطأ`). `text`: optional model answer. `mcq`: ignored; it is always the text of the correct option."
+          },
+          "description": {
+            "type": "string",
+            "description": "Explanation / solution / notes"
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Deprecated alias of `description`",
+            "deprecated": true
+          },
+          "marks": {
+            "type": "number",
+            "minimum": 0,
+            "default": 1
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "default": "medium"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language code; `ar`, `fa`, `ur`, `he` are reported with `dir: rtl`",
+            "default": "en",
+            "example": "bn"
+          }
+        },
+        "description": "At least one of `text`, `math` or an image is required."
+      },
+      "QuestionUpdate": {
+        "type": "object",
+        "properties": {
+          "type_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "One of the subject's question types. Alternative to `type`."
+          },
+          "type": {
+            "type": "string",
+            "description": "Question type **name** (case-insensitive), or a kind (`mcq`, `true_false`, `text`) to use the subject's first type of that kind. If neither `type_id` nor `type` is sent, the subject's first `mcq` type is used."
+          },
+          "chapter_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "Must belong to the same subject. `null` = no chapter.",
+            "nullable": true
+          },
+          "text": {
+            "type": "string",
+            "description": "Question text; may contain inline LaTeX such as `$x^2$`"
+          },
+          "math": {
+            "type": "string",
+            "description": "Display math (LaTeX)"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "`mcq` only: exactly 4 non-empty options (JSON bodies)"
+          },
+          "option_1": {
+            "type": "string",
+            "description": "`mcq` alternative to `options` (use these in multipart/form-data)"
+          },
+          "option_2": {
+            "type": "string"
+          },
+          "option_3": {
+            "type": "string"
+          },
+          "option_4": {
+            "type": "string"
+          },
+          "correct_option": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`mcq` only: 1-4",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "answer": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "description": "`true_false`: true/false (boolean, or text such as `true`, `yes`, `সত্য`, `মিথ্যা`, `صح`, `خطأ`). `text`: optional model answer. `mcq`: ignored; it is always the text of the correct option."
+          },
+          "description": {
+            "type": "string",
+            "description": "Explanation / solution / notes"
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Deprecated alias of `description`",
+            "deprecated": true
+          },
+          "marks": {
+            "type": "number",
+            "minimum": 0,
+            "default": 1
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "default": "medium"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language code; `ar`, `fa`, `ur`, `he` are reported with `dir: rtl`",
+            "default": "en",
+            "example": "bn"
+          },
+          "subject_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "Optional; must equal the question's current subject (questions cannot be moved)."
+          },
+          "remove_image": {
+            "type": "boolean",
+            "description": "Remove the figure (ignored when a new image is uploaded)"
+          }
+        },
+        "description": "Partial update: omitted fields keep their stored values. Sending `type`/`type_id` re-validates the whole question against the new type."
+      },
+      "QuestionMultipart": {
+        "type": "object",
+        "properties": {
+          "type_id": {
+            "type": "string",
+            "description": "One of the subject's question types. Alternative to `type`."
+          },
+          "type": {
+            "type": "string",
+            "description": "Question type **name** (case-insensitive), or a kind (`mcq`, `true_false`, `text`) to use the subject's first type of that kind. If neither `type_id` nor `type` is sent, the subject's first `mcq` type is used."
+          },
+          "chapter_id": {
+            "type": "string",
+            "description": "id, or empty to clear"
+          },
+          "text": {
+            "type": "string",
+            "description": "Question text; may contain inline LaTeX such as `$x^2$`"
+          },
+          "math": {
+            "type": "string",
+            "description": "Display math (LaTeX)"
+          },
+          "option_1": {
+            "type": "string",
+            "description": "`mcq` alternative to `options` (use these in multipart/form-data)"
+          },
+          "option_2": {
+            "type": "string"
+          },
+          "option_3": {
+            "type": "string"
+          },
+          "option_4": {
+            "type": "string"
+          },
+          "correct_option": {
+            "type": "string",
+            "description": "1-4"
+          },
+          "answer": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "description": "Explanation / solution / notes"
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Deprecated alias of `description`"
+          },
+          "marks": {
+            "type": "string",
+            "description": "number"
+          },
+          "difficulty": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language code; `ar`, `fa`, `ur`, `he` are reported with `dir: rtl`"
+          },
+          "image": {
+            "type": "string",
+            "description": "Figure: PNG, JPEG, GIF or WebP, max 5 MB (type is detected from the content)",
+            "format": "binary"
+          }
+        }
+      },
+      "QuestionUpdateMultipart": {
+        "type": "object",
+        "properties": {
+          "type_id": {
+            "type": "string",
+            "description": "One of the subject's question types. Alternative to `type`."
+          },
+          "type": {
+            "type": "string",
+            "description": "Question type **name** (case-insensitive), or a kind (`mcq`, `true_false`, `text`) to use the subject's first type of that kind. If neither `type_id` nor `type` is sent, the subject's first `mcq` type is used."
+          },
+          "chapter_id": {
+            "type": "string",
+            "description": "id, or empty to clear"
+          },
+          "text": {
+            "type": "string",
+            "description": "Question text; may contain inline LaTeX such as `$x^2$`"
+          },
+          "math": {
+            "type": "string",
+            "description": "Display math (LaTeX)"
+          },
+          "option_1": {
+            "type": "string",
+            "description": "`mcq` alternative to `options` (use these in multipart/form-data)"
+          },
+          "option_2": {
+            "type": "string"
+          },
+          "option_3": {
+            "type": "string"
+          },
+          "option_4": {
+            "type": "string"
+          },
+          "correct_option": {
+            "type": "string",
+            "description": "1-4"
+          },
+          "answer": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "description": "Explanation / solution / notes"
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Deprecated alias of `description`"
+          },
+          "marks": {
+            "type": "string",
+            "description": "number"
+          },
+          "difficulty": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language code; `ar`, `fa`, `ur`, `he` are reported with `dir: rtl`"
+          },
+          "image": {
+            "type": "string",
+            "description": "Figure: PNG, JPEG, GIF or WebP, max 5 MB (type is detected from the content)",
+            "format": "binary"
+          },
+          "subject_id": {
+            "type": "string"
+          },
+          "remove_image": {
+            "type": "string",
+            "description": "`true` to remove the figure"
+          }
+        }
+      },
+      "Question": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "subject_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "subject_name": {
+            "type": "string",
+            "description": "Only inside generated papers"
+          },
+          "class_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "class_name": {
+            "type": "string",
+            "description": "Only inside generated papers"
+          },
+          "type_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "type": {
+            "type": "string",
+            "description": "Question type name",
+            "example": "True/False"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mcq",
+              "true_false",
+              "text"
+            ]
+          },
+          "chapter_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "nullable": true
+          },
+          "chapter_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "text": {
+            "type": "string"
+          },
+          "math": {
+            "type": "string"
+          },
+          "image_url": {
+            "type": "string",
+            "example": "/api/files/12",
+            "nullable": true
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "nullable": true
+          },
+          "marks": {
+            "type": "number"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ]
+          },
+          "lang": {
+            "type": "string"
+          },
+          "dir": {
+            "type": "string",
+            "enum": [
+              "ltr",
+              "rtl"
+            ]
+          },
+          "correct_option": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`mcq` only",
+            "minimum": 1,
+            "maximum": 4,
+            "nullable": true
+          },
+          "answer": {
+            "type": "string",
+            "description": "`mcq`: text of the correct option; `true_false`: `true`/`false`; `text`: model answer (may be empty)"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subject_id",
+          "type_id",
+          "type",
+          "kind",
+          "chapter_id",
+          "chapter_name",
+          "text",
+          "math",
+          "image_url",
+          "options",
+          "marks",
+          "difficulty",
+          "lang",
+          "dir"
+        ],
+        "description": "`correct_option`, `answer` and `description` are omitted from generated papers unless `include_answers` is true."
+      },
+      "QuestionList": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Question"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "items"
+        ]
+      },
+      "RandomSpec": {
+        "type": "object",
+        "properties": {
+          "chapter_ids": {
+            "oneOf": [
+              {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "none"
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 1
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "none"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ],
+            "description": "Only questions of these chapters. `\"none\"` = questions without a chapter. One value or a list."
+          },
+          "type_ids": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 1
+                }
+              }
+            ],
+            "description": "Only these question types (ids). One value or a list."
+          },
+          "kinds": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "mcq",
+                  "true_false",
+                  "text"
+                ]
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "mcq",
+                    "true_false",
+                    "text"
+                  ]
+                }
+              }
+            ],
+            "description": "Only these kinds. One value or a list."
+          },
+          "types": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "description": "Only types with these names (or kinds). One value or a list."
+          },
+          "difficulty": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "easy",
+                  "medium",
+                  "hard"
+                ]
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "easy",
+                    "medium",
+                    "hard"
+                  ]
+                }
+              }
+            ],
+            "description": "One value or a list."
+          },
+          "lang": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "description": "One value or a list."
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number to pick from the filtered pool (>= 1)",
+            "minimum": 1
+          },
+          "by_type": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "description": "Count per question type. Key = type id, type name, or kind (`\"MCQ\"`, `\"5\"`, `\"mcq\"`).",
+            "example": {
+              "MCQ": 8,
+              "Plain": 2
+            }
+          },
+          "by_chapter": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "description": "Count per chapter. Key = chapter id or `\"none\"`.",
+            "example": {
+              "1": 5,
+              "2": 5
+            }
+          },
+          "allow_fewer": {
+            "type": "boolean",
+            "description": "Return fewer questions instead of failing (422) when the pool is too small",
+            "default": false
+          }
+        },
+        "description": "Random picking. Use **exactly one** of `count`, `by_type`, `by_chapter`. The filters narrow the pool first (OR inside a filter, AND between filters)."
+      },
+      "GenerateRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "default": "Question Paper"
+          },
+          "question_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "uniqueItems": true,
+            "description": "Hand-picked questions, kept in this order and placed first"
+          },
+          "subject_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "Scope of random picking (or use `class_id`)"
+          },
+          "class_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "Scope of random picking: every subject of the class"
+          },
+          "random": {
+            "$ref": "#/components/schemas/RandomSpec"
+          },
+          "shuffle_questions": {
+            "type": "boolean",
+            "default": false
+          },
+          "shuffle_options": {
+            "type": "boolean",
+            "description": "Shuffle MCQ options (the correct option is updated)",
+            "default": false
+          },
+          "include_answers": {
+            "type": "boolean",
+            "description": "Include `answer`, `correct_option`, `description` and an `answer_key`",
+            "default": false
+          },
+          "save": {
+            "type": "boolean",
+            "description": "Store the paper (see `/api/papers`); the response then has an `id` and status 201",
+            "default": false
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Free-form data copied into the paper (date, duration, ...)"
+          }
+        },
+        "description": "Provide `question_ids` and/or `random`. Random picks never repeat a question."
+      },
+      "PaperQuestion": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Question"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "number"
+            ]
+          }
+        ]
+      },
+      "AnswerKeyItem": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "type": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mcq",
+              "true_false"
+            ]
+          },
+          "correct_option": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "answer": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "type",
+          "kind",
+          "answer"
+        ]
+      },
+      "Paper": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Only when saved"
+          },
+          "title": {
+            "type": "string"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "institute": {
+            "$ref": "#/components/schemas/Institute"
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "total_questions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total_marks": {
+            "type": "number"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaperQuestion"
+            }
+          },
+          "answer_key": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnswerKeyItem"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "generated_at",
+          "institute",
+          "meta",
+          "total_questions",
+          "total_marks",
+          "questions"
+        ]
+      },
+      "PaperSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "UTC timestamp, `YYYY-MM-DD HH:MM:SS`",
+            "example": "2026-10-31 09:30:00"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "created_at"
+        ]
+      },
+      "DocFile": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "file-3"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "mime": {
+            "type": "string",
+            "example": "image/png"
+          },
+          "data_base64": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "required": [
+          "key",
+          "mime",
+          "data_base64"
+        ]
+      },
+      "DocQuestion": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Question type name (version 1 files: `mcq` or `text`)"
+          },
+          "chapter": {
+            "type": "string",
+            "description": "Chapter name; created on import if missing",
+            "nullable": true
+          },
+          "text": {
+            "type": "string"
+          },
+          "math": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "description": "Key of an entry in `files`",
+            "nullable": true
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "correct_option": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "answer": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "marks": {
+            "type": "number"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ]
+          },
+          "lang": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "DocSubject": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "position": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            }
+          },
+          "question_types": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "mcq",
+                    "true_false",
+                    "text"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "kind"
+              ]
+            }
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocQuestion"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "DocClass": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocSubject"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "Doc": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "example": "question-bank"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "example": 2
+          },
+          "exported_at": {
+            "type": "string"
+          },
+          "institute": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "location": {
+                "type": "string"
+              },
+              "logo": {
+                "type": "string",
+                "description": "Key of an entry in `files`",
+                "nullable": true
+              }
+            }
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocClass"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocFile"
+            }
+          }
+        },
+        "required": [
+          "classes"
+        ],
+        "description": "Portable, id-independent export document (version 2). Version 1 documents (`type` = `mcq`/`text`, `explanation`) are still accepted on import."
+      },
+      "ImportResult": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "merge",
+              "replace"
+            ]
+          },
+          "classes_created": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "subjects_created": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "chapters_created": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "question_types_created": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "questions_added": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "questions_skipped_duplicate": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "mode",
+          "classes_created",
+          "subjects_created",
+          "chapters_created",
+          "question_types_created",
+          "questions_added",
+          "questions_skipped_duplicate"
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid input (validation message in `error.message`)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Duplicate name, or the resource is still in use",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "PayloadTooLarge": {
+        "description": "Request body or image too large",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "UnsupportedMedia": {
+        "description": "Only PNG, JPEG, GIF or WebP images are allowed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unprocessable": {
+        "description": "Valid request, but it cannot be fulfilled (not enough questions, or an import record is invalid)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Resource id",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        }
+      },
+      "ClassId": {
+        "name": "classId",
+        "in": "path",
+        "required": true,
+        "description": "Class id",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        }
+      },
+      "SubjectId": {
+        "name": "subjectId",
+        "in": "path",
+        "required": true,
+        "description": "Subject id",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
