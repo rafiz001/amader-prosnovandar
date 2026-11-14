@@ -1,6 +1,8 @@
 import { cn, dirOf, num } from '../../lib/utils.js';
 import { DIFFICULTY_TONE } from '../../lib/constants.js';
 import { Icon } from '../Icon.jsx';
+import { Markdown } from '../markdown/Markdown.jsx';
+import { MathTex } from '../markdown/MathTex.jsx';
 import { Badge, Button, KindBadge } from '../ui/index.js';
 
 export function QuestionRow({ q, onEdit, onDelete }) {
@@ -17,14 +19,15 @@ export function QuestionRow({ q, onEdit, onDelete }) {
           <Badge tone="violet">{num(q.marks)} mk</Badge>
         </div>
 
-        <div
-          className={cn(
-            'text-sm leading-relaxed text-slate-800',
-            dir === 'rtl' ? 'rtl-text' : 'ltr-text'
+        <div className={dir === 'rtl' ? 'rtl-text' : 'ltr-text'}>
+          {q.text ? (
+            <Markdown dir={dir} className="text-sm leading-relaxed text-slate-800">
+              {q.text}
+            </Markdown>
+          ) : (
+            <span className="text-sm text-slate-400">(no text)</span>
           )}
-        >
-          {q.text || <span className="text-slate-400">(no text)</span>}
-          {q.math && <span className="ml-1 math-tex text-slate-600">${q.math}$</span>}
+          {q.math && <MathTex tex={q.math} display className="mt-1 text-sm text-slate-700" />}
         </div>
 
         {q.options && q.options.length > 0 && (
@@ -42,16 +45,32 @@ export function QuestionRow({ q, onEdit, onDelete }) {
                 <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">
                   {String.fromCharCode(65 + i)}
                 </span>
-                <span className={dir === 'rtl' ? 'rtl-text' : ''}>{opt}</span>
+                <Markdown inline dir={dir} className="text-xs text-slate-600">
+                  {opt}
+                </Markdown>
               </li>
             ))}
           </ol>
         )}
 
         {q.answer && q.kind !== 'mcq' && (
-          <p className="text-xs text-emerald-700">
-            <span className="font-semibold">Answer:</span> {q.answer}
-          </p>
+          <div className="text-xs text-emerald-700">
+            <span className="font-semibold">Answer:</span>{' '}
+            <Markdown inline dir={dir} className="text-xs text-emerald-800">
+              {q.answer}
+            </Markdown>
+          </div>
+        )}
+
+        {q.description && (
+          <div className="rounded-md bg-slate-50 px-2 py-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Solution
+            </p>
+            <Markdown dir={dir} className="text-xs text-slate-700">
+              {q.description}
+            </Markdown>
+          </div>
         )}
       </div>
 

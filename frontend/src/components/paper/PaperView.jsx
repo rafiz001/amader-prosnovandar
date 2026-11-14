@@ -1,4 +1,6 @@
 import { cn, dirOf, num, prettyDate } from '../../lib/utils.js';
+import { Markdown } from '../markdown/Markdown.jsx';
+import { MathTex } from '../markdown/MathTex.jsx';
 import { Badge, Button, Card, KindBadge } from '../ui/index.js';
 
 export function PaperView({ paper, onBack, backLabel = 'Back' }) {
@@ -78,16 +80,17 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
                     {q.chapter_name && <Badge tone="indigo">{q.chapter_name}</Badge>}
                   </div>
                   {q.text && (
-                    <p
+                    <Markdown
+                      dir={dir}
                       className={cn(
                         'text-sm leading-relaxed text-slate-800',
                         dir === 'rtl' ? 'rtl-text' : 'ltr-text'
                       )}
                     >
                       {q.text}
-                    </p>
+                    </Markdown>
                   )}
-                  {q.math && <p className="math-tex mt-1 text-sm text-slate-700">{q.math}</p>}
+                  {q.math && <MathTex tex={q.math} display className="mt-1 text-sm text-slate-700" />}
                   {q.image_url && (
                     <img
                       src={q.image_url}
@@ -102,18 +105,25 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
                           <span className="font-semibold text-slate-500">
                             {String.fromCharCode(65 + i)})
                           </span>
-                          <span className={dir === 'rtl' ? 'rtl-text' : ''}>{opt}</span>
+                          <Markdown inline dir={dir} className="text-sm text-slate-700">
+                            {opt}
+                          </Markdown>
                         </li>
                       ))}
                     </ol>
                   )}
                   {q.answer != null && q.kind !== 'mcq' && (
-                    <p className="mt-1 text-xs font-medium text-emerald-700">
-                      Answer: {String(q.answer)}
-                    </p>
+                    <div className="mt-1 text-xs font-medium text-emerald-700">
+                      Answer:{' '}
+                      <Markdown inline dir={dir} className="text-xs font-medium text-emerald-700">
+                        {String(q.answer)}
+                      </Markdown>
+                    </div>
                   )}
                   {q.description && (
-                    <p className="mt-1 text-xs italic text-slate-500">{q.description}</p>
+                    <Markdown dir={dir} className="mt-1 text-xs text-slate-500">
+                      {q.description}
+                    </Markdown>
                   )}
                 </div>
               </li>
@@ -128,7 +138,12 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
             <div className="grid grid-cols-2 gap-1 text-sm text-slate-700 sm:grid-cols-4">
               {paper.answer_key.map((a) => (
                 <p key={a.number}>
-                  <span className="font-semibold">{a.number}.</span> {a.answer}
+                  <span className="font-semibold">{a.number}.</span>{' '}
+                  {a.answer != null && (
+                    <Markdown inline className="text-sm text-slate-700">
+                      {String(a.answer)}
+                    </Markdown>
+                  )}
                   {a.correct_option && (
                     <span className="text-xs text-slate-400">
                       {' '}

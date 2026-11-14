@@ -5,15 +5,9 @@ import { API } from '../../lib/api.js';
 import { DIFFICULTIES, KIND_LABEL } from '../../lib/constants.js';
 import { cn } from '../../lib/utils.js';
 import { Icon } from '../Icon.jsx';
-import {
-  Button,
-  Field,
-  Input,
-  LoadingBlock,
-  Modal,
-  Select,
-  Textarea,
-} from '../ui/index.js';
+import { MarkdownEditor } from '../markdown/MarkdownEditor.jsx';
+import { MathEditor } from '../markdown/MathEditor.jsx';
+import { Button, Field, Input, LoadingBlock, Modal, Select } from '../ui/index.js';
 
 export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
   const toast = useToast();
@@ -284,21 +278,27 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
           </div>
 
           {/* Text + math */}
-          <Field label="Question text" hint="Inline LaTeX like $x^2$ is supported">
-            <Textarea
-              rows={3}
+          <Field
+            label="Question text"
+            hint="Markdown supported — inline math like $x^2$ renders with KaTeX"
+          >
+            <MarkdownEditor
+              rows={4}
               value={form.text}
-              onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
+              onChange={(v) => setForm((f) => ({ ...f, text: v }))}
               placeholder="সমীকরণ $x^2-5x+6=0$ এর বীজ কত?"
             />
           </Field>
 
-          <Field label="Display math (LaTeX)">
-            <Input
+          <Field
+            label="Display math (LaTeX)"
+            hint="Optional — shown as a block equation with a live KaTeX preview"
+          >
+            <MathEditor
               value={form.math}
-              onChange={(e) => setForm((f) => ({ ...f, math: e.target.value }))}
+              onChange={(v) => setForm((f) => ({ ...f, math: v }))}
+              rows={2}
               placeholder="A = \pi r^2"
-              className="font-mono"
             />
           </Field>
 
@@ -306,7 +306,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
           {kind === 'mcq' && (
             <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-indigo-700">
-                Options · pick the correct one
+                Options · pick the correct one · inline math $...$ supported
               </p>
               <div className="space-y-2">
                 {form.options.map((opt, i) => {
@@ -374,20 +374,22 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
           )}
 
           {kind === 'text' && (
-            <Field label="Model answer" hint="Optional — saved with the question">
-              <Textarea
-                rows={2}
+            <Field label="Model answer" hint="Markdown and math supported — saved with the question">
+              <MarkdownEditor
+                rows={3}
                 value={form.answer}
-                onChange={(e) => setForm((f) => ({ ...f, answer: e.target.value }))}
+                onChange={(v) => setForm((f) => ({ ...f, answer: v }))}
+                placeholder="Optional model answer"
               />
             </Field>
           )}
 
-          <Field label="Explanation / solution" hint="Optional notes">
-            <Textarea
-              rows={2}
+          <Field label="Explanation / solution" hint="Markdown and math supported">
+            <MarkdownEditor
+              rows={3}
               value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              onChange={(v) => setForm((f) => ({ ...f, description: v }))}
+              placeholder="Optional solution or explanation"
             />
           </Field>
 

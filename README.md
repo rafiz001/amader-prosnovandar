@@ -1,20 +1,132 @@
-# Question Bank Backend (Go + SQLite)
+# Question Bank (Go + SQLite + React)
 
-Go rewrite of the Express backend, with the same REST API. UTF-8 end to end (Arabic, Bengali, any
-Unicode); text is NFC-normalised on write. Routing uses only the standard library (Go 1.22 `net/http`).
+Full-stack question bank for schools: a Go REST API (SQLite, standard-library routing) and a React admin
+UI in `frontend/`. UTF-8 end to end (Bengali, Arabic, any Unicode); text is NFC-normalised on write.
+The API is a Go rewrite of the original Express backend, with the same routes.
+
+- **Backend** — Go 1.22 `net/http`, `mattn/go-sqlite3`, embedded migrations; also serves the built frontend.
+- **Frontend** — React 18 + Vite 5 + Tailwind CSS 3 admin SPA (no router library; in-memory navigation).
 
 ## Requirements
 - Go 1.22+
 - A C compiler (gcc/clang): `mattn/go-sqlite3` uses cgo
+- Node 18+ and npm — only needed to develop or rebuild the frontend
 
-## Run
-    go mod tidy          # first time only: downloads deps and writes go.sum
-    go run .             # applies migrations automatically
+## Quick start (one server, production-like)
+    make build           # -> bin/questionbank (migrations and openapi.json are embedded via go:embed)
+    ./bin/questionbank   # applies migrations automatically
+Open <http://localhost:3000>. The server serves the SPA from `frontend/dist` and the API under `/api`.
+`frontend/dist` is committed, so this works without Node; rebuild it after changing frontend source (below).
+
+Other commands:
+    go run .             # same, without building a binary
     go run . -migrate    # apply migrations and exit
-    make build           # -> bin/questionbank (one binary; migrations are embedded via go:embed)
-Env: `PORT` (3000), `DB_PATH` (./data/questionbank.sqlite). Add migrations as `migrations/00N_name.sql`.
+    make run             # go run .
+    make migrate         # go run . -migrate
+    make tidy            # go mod tidy (first time only, if go.sum is missing)
 
-## Layout
+Env: `PORT` (3000), `DB_PATH` (./data/questionbank.sqlite), `FRONTEND_DIR` (see below).
+Add migrations as `migrations/00N_name.sql`.
+
+## Frontend development (Vite dev server + Go API)
+Run the API and Vite in two terminals:
+
+    # terminal 1 — API
+    PORT=8080 go run .
+
+    # terminal 2 — Vite with hot reload
+    cd frontend
+    npm install
+    npm run dev          # http://localhost:5173
+
+Vite proxies `/api` and `/health` to `VITE_API_TARGET`, default `http://localhost:8080`, which is why the API
+is started on `PORT=8080` above. If you prefer the API's default port, run `VITE_API_TARGET=http://localhost:3000 npm run dev`.
+
+Build the static bundle that the Go server serves:
+    cd frontend
+    npm run build        # writes frontend/dist/
+    npm run preview      # optional: serve the built bundle alone (no /api proxy)
+
+Re-run `npm run build` after frontend changes; the Go binary does not need rebuilding.
+
+## Configuration
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `3000` | HTTP port for the API and the served frontend |
+| `DB_PATH` | `./data/questionbank.sqlite` | SQLite database file (created if missing) |
+| `FRONTEND_DIR` | auto-detected | Folder containing the built frontend (`index.html` + `assets/`) |
+
+## Frontend
+
+Screens (sidebar):
+- **Institute** — name, location, logo (PNG/JPEG/GIF/WebP, max 5 MB) shown on generated papers.
+- **Classes** — list/create/edit/delete classes; open a class to manage its subjects.
+- **Class** — subjects of a class, each with question/chapter/type counts.
+- **Subject** — tabs for **Questions** (filter by kind/difficulty, search, pagination, create/edit with image,
+  a Markdown editor with live preview, a KaTeX math editor, and per-kind answer fields), **Chapters**, and
+  **Question types** (name + kind; types in use are locked).
+- **Generate** — pick questions manually from a filtered, paginated list (click a question to select it; the
+  selection is kept across pages); a selection bar shows the count and total marks; shuffle questions/options;
+  include answers; save the paper; duration in minutes.
+- **Papers** — saved papers with a paper view and a **Print** button (browser print dialog).
+
+Question text, answers and solutions are Markdown (GFM): headings, lists, quotes, code, links, tables and
+hard line breaks. Inline math written as `$...$` / `$$...$$` and the "display math" field (raw LaTeX) are
+rendered with KaTeX in the question list and on generated papers. The editors have a live preview, and the
+math editor adds a symbol palette for common LaTeX. Question text can be Bengali, Arabic or any script;
+Arabic-script languages render right-to-left.
+Import/export have **no UI yet** — use the API endpoints below (Swagger UI, curl, or
+`frontend/src/lib/api.js` as a client reference).
+
+Layout:
+    frontend/
+      index.html            app shell (fonts: Inter, Noto Sans Bengali, Noto Naskh Arabic)
+      vite.config.js        dev server on 5173, /api and /health proxy to VITE_API_TARGET
+      tailwind.config.js    theme, fonts, shadows, animations
+      postcss.config.js
+      src/
+        main.jsx            React root
+        App.jsx             layout, sidebar/topbar, in-memory navigation stack
+        index.css           Tailwind entry, RTL helpers, Markdown/KaTeX styles, print rules
+        pages/              Institute, Classes, Class, Subject, Generate, Papers
+        components/
+          layout/           Sidebar, Topbar, Breadcrumbs, Brand
+          ui/               Button, Card, Modal, ConfirmDialog, Form, Badge, states
+          subject/          ChaptersTab, TypesTab, QuestionsTab
+          questions/        QuestionEditor, QuestionRow, QuestionPicker, QuestionPickerRow
+          markdown/         Markdown, MarkdownEditor, MathEditor, MathTex (KaTeX)
+          paper/            PaperView (printable paper + answer key)
+        lib/api.js          fetch wrapper and the whole API surface
+        lib/constants.js    kinds, difficulties, nav items
+        lib/utils.js        cn, num, dates, RTL detection
+        hooks/useResource.js    small load/reload hook
+        context/            navigation and toast providers
+      dist/                 committed build output served by the Go binary
+
+Notes:
+- API calls are relative (`fetch('/api/...')`), so the app is same-origin in production and proxied in dev.
+- Navigation is an in-memory stack, not URL routes, so there are no deep links; refreshing returns to the
+  Institute page. The Go server still falls back to `index.html` for extensionless paths.
+- `node_modules/` is gitignored; `dist/` inside `frontend/` is tracked on purpose.
+
+## How the Go server serves the frontend
+`frontend.go` looks for the folder holding `index.html` in this order:
+`FRONTEND_DIR`, `<folder of the executable>/frontend/dist`, then `./frontend/dist` (so `go run .` works).
+Release layout:
+
+    questionbank.exe        (or ./questionbank)
+    frontend/
+        dist/
+            index.html
+            assets/...
+
+- Files are read from disk at runtime, so you can replace the build without recompiling the Go binary.
+- Paths with no file extension that match no file return `index.html`; missing assets such as `/missing.js` return 404.
+- Directory listings and dotfiles (`.env`, `.git`) are never served; `.js` is always served as JavaScript,
+  even on Windows machines with a broken registry MIME entry.
+- If no folder is found the server logs it and serves only the API.
+
+## Layout (backend)
     main.go                routes, middleware (CORS, logging, panic recovery), startup, graceful shutdown
     db.go                  SQLite open + embedded migration runner
     util.go                errors, JSON helpers, NFC cleaning, request parsing (JSON / multipart / form)
@@ -26,28 +138,11 @@ Env: `PORT` (3000), `DB_PATH` (./data/questionbank.sqlite). Add migrations as `m
     handlers_generate.go   paper generation + saved papers
     transfer.go            portable document build/import (JSON/YAML/SQLite share one path)
     handlers_transfer.go   export/import endpoints
-    frontend.go            serves the static frontend folder
+    frontend.go            finds and serves the built frontend folder
     docs.go                serves openapi.json (embedded) at /api/openapi.json
     openapi.json           OpenAPI 3.0 description of the whole API
-
-## Static frontend
-Put your built `index.html`, CSS and JS in a `frontend/` folder **next to the binary** and the server serves it at `/`
-(the API stays under `/api`). Release layout:
-
-    questionbank.exe        (or ./questionbank)
-    frontend/
-        index.html
-        assets/...
-
-The folder is looked up in this order: `FRONTEND_DIR` env var, `<folder of the executable>/frontend`
-(so it works no matter where you launch the binary from), then `./frontend` (for `go run .`).
-It is read from disk at runtime, so you can replace frontend files without rebuilding.
-- Paths with no file extension that match no file return `index.html` (client-side routing);
-  missing assets such as `/missing.js` return 404.
-- Directory listings and dotfiles (`.env`, `.git`) are never served; `.js` is always served as JavaScript,
-  even on Windows machines with a broken registry MIME entry.
-- Call the API with relative URLs (`fetch('/api/classes')`); same origin, so no CORS issues.
-- If no folder is found the server logs it and serves only the API.
+    migrations/            001_init.sql, 002_chapters_types.sql
+    data/                  default SQLite location (gitignored)
 
 ## API documentation (OpenAPI / Swagger)
 `openapi.json` describes every endpoint (38 operations), with request/response schemas and Bengali/Arabic examples.
@@ -55,6 +150,7 @@ It is read from disk at runtime, so you can replace frontend files without rebui
 - Open it in Swagger UI / Swagger Editor, Redoc, Postman or Insomnia (import by file or URL), or generate a client from it.
 - Swagger UI itself loads its assets from the internet; for fully offline use, import the file into Postman/Insomnia
   or serve a local copy of Swagger UI yourself.
+- `GET /health` returns `{"ok":true}`.
 
 ## API (all under /api)
 | Area | Endpoints |
@@ -122,6 +218,9 @@ also **version 1 files** from before this update (JSON/YAML with `type: "mcq"|"t
 old SQLite export, which is upgraded on the fly). `merge` adds missing items and skips exact duplicates;
 `replace` wipes classes/subjects/questions first. Imports are atomic. Saved papers are not imported.
 
+    curl -OJ 'http://localhost:3000/api/export?format=json'
+    curl -F file=@questions.json 'http://localhost:3000/api/import?mode=merge'
+
 ## Upgrading an existing database
 Just start the new binary: migration `002_chapters_types.sql` converts the database in place. Every subject gets the
 three default types, each existing question is linked to the matching one, MCQ `answer`s are filled in from the
@@ -131,3 +230,4 @@ correct option, and `explanation` becomes `description`. Back up the `.sqlite` f
 - Uploaded image types are detected from file content (PNG/JPEG/GIF/WebP), not the client-sent type.
 - For non-MCQ questions, `correct_option` is omitted from the JSON instead of being `null`.
 - Migrations are compiled into the binary, so no separate bundling step is needed.
+- The admin UI ships in this repo (`frontend/`) and is served by the same Go process.
