@@ -35,14 +35,14 @@ export function InstitutePage() {
 
   const save = async (e) => {
     e?.preventDefault?.();
-    if (!form.name.trim()) return toast.error('Institute name is required');
+    if (!form.name.trim()) return toast.error('প্রতিষ্ঠানের নাম আবশ্যক');
     setSaving(true);
     try {
       await API.institute.update({
         name: form.name.trim(),
         location: form.location.trim(),
       });
-      toast.success('Institute updated');
+      toast.success('প্রতিষ্ঠান হালনাগাদ হয়েছে');
       setEditing(false);
       reload();
     } catch (err) {
@@ -55,14 +55,14 @@ export function InstitutePage() {
   const onPickLogo = async (file) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Logo must be 5 MB or smaller');
+      toast.error('লোগো ৫ মেগাবাইট বা তার কম হতে হবে');
       if (fileRef.current) fileRef.current.value = '';
       return;
     }
     setUploading(true);
     try {
       await API.institute.uploadLogo(file);
-      toast.success('Logo uploaded');
+      toast.success('লোগো আপলোড হয়েছে');
       reload();
     } catch (err) {
       toast.error(err.message);
@@ -76,7 +76,7 @@ export function InstitutePage() {
     setRemovingLogo(true);
     try {
       await API.institute.deleteLogo();
-      toast.success('Logo removed');
+      toast.success('লোগো সরানো হয়েছে');
       setConfirmRemoveLogo(false);
       reload();
     } catch (err) {
@@ -86,45 +86,45 @@ export function InstitutePage() {
     }
   };
 
-  if (loading) return <LoadingBlock label="Loading institute…" />;
+  if (loading) return <LoadingBlock label="প্রতিষ্ঠান লোড হচ্ছে…" />;
   if (error) return <ErrorBlock error={error} onRetry={reload} />;
 
   return (
     <>
       <PageHeader
-        title="Institute profile"
-        subtitle="Name, location and logo shown on generated papers"
+        title="প্রতিষ্ঠানের প্রোফাইল"
+        subtitle="তৈরি প্রশ্নপত্রে দেখানো নাম, অবস্থান ও লোগো"
         icon="building"
         actions={
           <Button icon="pencil" onClick={openEdit}>
-            Edit details
+            বিবরণ সম্পাদনা
           </Button>
         }
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Details" icon="info" />
+          <CardHeader title="বিবরণ" icon="info" />
           <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Name
+                নাম
               </p>
               <p className="mt-1 text-sm font-medium text-slate-900">
-                {institute.name || <span className="text-slate-400">Not set</span>}
+                {institute.name || <span className="text-slate-400">নির্ধারিত নয়</span>}
               </p>
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Location
+                অবস্থান
               </p>
               <p className="mt-1 text-sm font-medium text-slate-900">
-                {institute.location || <span className="text-slate-400">Not set</span>}
+                {institute.location || <span className="text-slate-400">নির্ধারিত নয়</span>}
               </p>
             </div>
             <div className="sm:col-span-2">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Last updated
+                সর্বশেষ হালনাগাদ
               </p>
               <p className="mt-1 text-sm text-slate-600">{prettyDate(institute.updated_at)}</p>
             </div>
@@ -132,12 +132,16 @@ export function InstitutePage() {
         </Card>
 
         <Card>
-          <CardHeader title="Logo" icon="image" subtitle="PNG, JPEG, GIF or WebP · max 5 MB" />
+          <CardHeader
+            title="লোগো"
+            icon="image"
+            subtitle="পিএনজি, জেপিইজি, জিআইএফ বা ওয়েবপি · সর্বোচ্চ ৫ মেগাবাইট"
+          />
           <div className="space-y-3 p-4">
             {institute.logo_url ? (
               <img
                 src={institute.logo_url}
-                alt="Institute logo"
+                alt="প্রতিষ্ঠানের লোগো"
                 className="mx-auto grid h-36 w-36 place-items-center rounded-xl border border-slate-200 bg-slate-50 object-contain p-2"
               />
             ) : (
@@ -153,7 +157,7 @@ export function InstitutePage() {
                 loading={uploading}
                 onClick={() => fileRef.current?.click()}
               >
-                Upload
+                আপলোড
               </Button>
               {institute.logo_url && (
                 <Button
@@ -162,7 +166,7 @@ export function InstitutePage() {
                   icon="trash"
                   onClick={() => setConfirmRemoveLogo(true)}
                 >
-                  Remove
+                  সরান
                 </Button>
               )}
             </div>
@@ -180,21 +184,21 @@ export function InstitutePage() {
       <Modal
         open={editing}
         onClose={() => !saving && setEditing(false)}
-        title="Edit institute"
+        title="প্রতিষ্ঠান সম্পাদনা"
         size="sm"
         footer={
           <>
             <Button variant="secondary" onClick={() => setEditing(false)} disabled={saving}>
-              Cancel
+              বাতিল
             </Button>
             <Button onClick={save} loading={saving}>
-              Save changes
+              পরিবর্তন সংরক্ষণ করুন
             </Button>
           </>
         }
       >
         <form onSubmit={save} className="space-y-4">
-          <Field label="Name" required>
+          <Field label="নাম" required>
             <Input
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -202,7 +206,7 @@ export function InstitutePage() {
               autoFocus
             />
           </Field>
-          <Field label="Location">
+          <Field label="অবস্থান">
             <Input
               value={form.location}
               onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
@@ -214,9 +218,9 @@ export function InstitutePage() {
 
       <ConfirmDialog
         open={confirmRemoveLogo}
-        title="Remove the logo?"
-        message="This will remove the logo from the institute profile. You can upload a new one any time."
-        confirmLabel="Remove logo"
+        title="লোগোটি সরিয়ে ফেলবেন?"
+        message="এটি প্রতিষ্ঠানের প্রোফাইল থেকে লোগো সরিয়ে দেবে। পরে আবার নতুন একটি আপলোড করতে পারবেন।"
+        confirmLabel="লোগো সরান"
         loading={removingLogo}
         onCancel={() => !removingLogo && setConfirmRemoveLogo(false)}
         onConfirm={removeLogo}

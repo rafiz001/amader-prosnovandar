@@ -38,7 +38,7 @@ function renderRoute(route) {
     case 'papers':
       return <PapersPage />;
     default:
-      return <EmptyState icon="alert" title="Page not found" message={`Unknown route: ${route.path}`} />;
+      return <EmptyState icon="alert" title="পৃষ্ঠা পাওয়া যায়নি" message={`অজানা পথ: ${route.path}`} />;
   }
 }
 
@@ -108,14 +108,14 @@ export default function App() {
             </main>
 
             <footer className="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-400 sm:px-6">
-              Question Bank API v2.0 · UTF‑8 / NFC ·{' '}
+              প্রশ্নব্যাংক এপিআই সংস্করণ ২.০ · ইউটিএফ-৮ / এনএফসি ·{' '}
               <a
                 className="underline decoration-dotted hover:text-slate-600"
                 href="/api/openapi.json"
                 target="_blank"
                 rel="noreferrer"
               >
-                OpenAPI 3.0
+                ওপেনএপিআই ৩.০
               </a>
             </footer>
           </div>

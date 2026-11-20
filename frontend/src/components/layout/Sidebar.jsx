@@ -27,7 +27,7 @@ export function Sidebar({ activeKey, onNavigate, open, onClose }) {
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 lg:hidden"
-            aria-label="Close menu"
+            aria-label="মেনু বন্ধ করুন"
           >
             <Icon name="x" className="h-5 w-5" />
           </button>
@@ -35,7 +35,7 @@ export function Sidebar({ activeKey, onNavigate, open, onClose }) {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Workspace
+            কর্মক্ষেত্র
           </p>
           {NAV_ITEMS.map((item) => {
             const active = activeKey === item.key;
@@ -79,7 +79,7 @@ export function Sidebar({ activeKey, onNavigate, open, onClose }) {
         <div className="border-t border-slate-200 p-3">
           <div className="rounded-xl bg-slate-50 p-3">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              <Icon name="info" className="h-3.5 w-3.5" /> API
+              <Icon name="info" className="h-3.5 w-3.5" /> এপিআই
             </p>
             <div className="mt-2 space-y-1.5">
               <a
@@ -88,7 +88,7 @@ export function Sidebar({ activeKey, onNavigate, open, onClose }) {
                 rel="noreferrer"
                 className="flex items-center justify-between rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition hover:text-indigo-600"
               >
-                OpenAPI spec <Icon name="external" className="h-3.5 w-3.5" />
+                ওপেনএপিআই স্পেসিফিকেশন <Icon name="external" className="h-3.5 w-3.5" />
               </a>
               <a
                 href="/health"
@@ -96,7 +96,7 @@ export function Sidebar({ activeKey, onNavigate, open, onClose }) {
                 rel="noreferrer"
                 className="flex items-center justify-between rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200 transition hover:text-emerald-600"
               >
-                Health check <Icon name="external" className="h-3.5 w-3.5" />
+                স্বাস্থ্য পরীক্ষা <Icon name="external" className="h-3.5 w-3.5" />
               </a>
             </div>
           </div>

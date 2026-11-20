@@ -1,9 +1,9 @@
-import { cn, dirOf, num, prettyDate } from '../../lib/utils.js';
+import { bnNum, cn, dirOf, optionLetter, prettyDate } from '../../lib/utils.js';
 import { Markdown } from '../markdown/Markdown.jsx';
 import { MathTex } from '../markdown/MathTex.jsx';
 import { Badge, Button, Card, KindBadge } from '../ui/index.js';
 
-export function PaperView({ paper, onBack, backLabel = 'Back' }) {
+export function PaperView({ paper, onBack, backLabel = 'ফিরে যান' }) {
   if (!paper) return null;
   const inst = paper.institute || {};
 
@@ -14,11 +14,11 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
           {backLabel}
         </Button>
         <div className="flex items-center gap-2">
-          <Badge tone="indigo">{num(paper.total_questions)} questions</Badge>
-          <Badge tone="violet">{num(paper.total_marks)} marks</Badge>
-          {paper.id && <Badge tone="emerald">Saved #{paper.id}</Badge>}
+          <Badge tone="indigo">{bnNum(paper.total_questions)}টি প্রশ্ন</Badge>
+          <Badge tone="violet">{bnNum(paper.total_marks)} নম্বর</Badge>
+          {paper.id && <Badge tone="emerald">সংরক্ষিত #{bnNum(paper.id)}</Badge>}
           <Button variant="secondary" size="sm" icon="printer" onClick={() => window.print()}>
-            Print
+            মুদ্রণ
           </Button>
         </div>
       </div>
@@ -29,12 +29,12 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
           {inst.logo_url && (
             <img
               src={inst.logo_url}
-              alt=""
+              alt="প্রতিষ্ঠানের লোগো"
               className="mx-auto mb-3 h-16 w-16 rounded object-contain"
             />
           )}
           <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            {inst.name || 'Institute'}
+            {inst.name || 'প্রতিষ্ঠান'}
           </h2>
           {inst.location && <p className="mt-0.5 text-sm text-slate-500">{inst.location}</p>}
         </div>
@@ -45,20 +45,20 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
             <h3 className="text-lg font-semibold text-slate-900">{paper.title}</h3>
             {paper.generated_at && (
               <p className="text-xs text-slate-500">
-                Generated {prettyDate(paper.generated_at)}
+                তৈরি হয়েছে {prettyDate(paper.generated_at)}
               </p>
             )}
           </div>
           <div className="text-right text-sm text-slate-600">
             <p>
-              <span className="font-semibold text-slate-900">{paper.total_questions}</span>{' '}
-              questions
+              <span className="font-semibold text-slate-900">{bnNum(paper.total_questions)}</span>টি
+              প্রশ্ন
             </p>
             <p>
-              <span className="font-semibold text-slate-900">{paper.total_marks}</span> marks
+              <span className="font-semibold text-slate-900">{bnNum(paper.total_marks)}</span> নম্বর
             </p>
             {paper.meta?.duration_minutes ? (
-              <p>Duration: {paper.meta.duration_minutes} min</p>
+              <p>সময়কাল: {bnNum(paper.meta.duration_minutes)} মিনিট</p>
             ) : null}
           </div>
         </div>
@@ -70,13 +70,13 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
             return (
               <li key={`${q.id}-${q.number}`} className="flex gap-3">
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-                  {q.number}
+                  {bnNum(q.number)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-1.5">
                     <KindBadge kind={q.kind} />
                     <Badge tone="slate">{q.type}</Badge>
-                    <Badge tone="violet">{num(q.marks)} mk</Badge>
+                    <Badge tone="violet">{bnNum(q.marks)} নম্বর</Badge>
                     {q.chapter_name && <Badge tone="indigo">{q.chapter_name}</Badge>}
                   </div>
                   {q.text && (
@@ -94,7 +94,7 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
                   {q.image_url && (
                     <img
                       src={q.image_url}
-                      alt=""
+                      alt="প্রশ্নের চিত্র"
                       className="mt-2 max-h-52 rounded border border-slate-200 object-contain"
                     />
                   )}
@@ -102,9 +102,7 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
                     <ol className="mt-2 grid gap-1 text-sm text-slate-700 sm:grid-cols-2">
                       {q.options.map((opt, i) => (
                         <li key={i} className="flex gap-2">
-                          <span className="font-semibold text-slate-500">
-                            {String.fromCharCode(65 + i)})
-                          </span>
+                          <span className="font-semibold text-slate-500">{optionLetter(i)})</span>
                           <Markdown inline dir={dir} className="text-sm text-slate-700">
                             {opt}
                           </Markdown>
@@ -114,7 +112,7 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
                   )}
                   {q.answer != null && q.kind !== 'mcq' && (
                     <div className="mt-1 text-xs font-medium text-emerald-700">
-                      Answer:{' '}
+                      উত্তর:{' '}
                       <Markdown inline dir={dir} className="text-xs font-medium text-emerald-700">
                         {String(q.answer)}
                       </Markdown>
@@ -134,21 +132,18 @@ export function PaperView({ paper, onBack, backLabel = 'Back' }) {
         {/* Answer key */}
         {Array.isArray(paper.answer_key) && paper.answer_key.length > 0 && (
           <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <h4 className="mb-2 text-sm font-semibold text-slate-800">Answer key</h4>
+            <h4 className="mb-2 text-sm font-semibold text-slate-800">উত্তরমালা</h4>
             <div className="grid grid-cols-2 gap-1 text-sm text-slate-700 sm:grid-cols-4">
               {paper.answer_key.map((a) => (
                 <p key={a.number}>
-                  <span className="font-semibold">{a.number}.</span>{' '}
+                  <span className="font-semibold">{bnNum(a.number)}.</span>{' '}
                   {a.answer != null && (
                     <Markdown inline className="text-sm text-slate-700">
                       {String(a.answer)}
                     </Markdown>
                   )}
                   {a.correct_option && (
-                    <span className="text-xs text-slate-400">
-                      {' '}
-                      ({String.fromCharCode(64 + a.correct_option)})
-                    </span>
+                    <span className="text-xs text-slate-400"> ({optionLetter(a.correct_option - 1)})</span>
                   )}
                 </p>
               ))}

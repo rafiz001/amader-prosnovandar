@@ -60,7 +60,7 @@ export function ToastProvider({ children }) {
               <button
                 onClick={() => dismiss(t.id)}
                 className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                aria-label="Dismiss"
+                aria-label="বন্ধ করুন"
               >
                 <Icon name="x" className="h-4 w-4" />
               </button>

@@ -1,24 +1,24 @@
 import { useRef, useState } from 'react';
-import { cn } from '../../lib/utils.js';
+import { bnNum, cn } from '../../lib/utils.js';
 import { Button } from '../ui/index.js';
 import { Markdown } from './Markdown.jsx';
 import { MathEditor } from './MathEditor.jsx';
 
 const TOOLBAR = [
-  { key: 'bold', label: 'B', title: 'Bold', className: 'font-bold' },
-  { key: 'italic', label: 'I', title: 'Italic', className: 'italic font-serif' },
-  { key: 'heading', label: 'H', title: 'Heading' },
-  { key: 'quote', label: '❝', title: 'Quote' },
-  { key: 'code', label: '‹/›', title: 'Code block' },
-  { key: 'link', label: 'Link', title: 'Link' },
-  { key: 'bullet', label: '•', title: 'Bullet list' },
-  { key: 'number', label: '1.', title: 'Numbered list' },
+  { key: 'bold', label: 'গাঢ়', title: 'গাঢ়', className: 'font-bold' },
+  { key: 'italic', label: 'বাঁকা', title: 'বাঁকা', className: 'italic font-serif' },
+  { key: 'heading', label: 'শিরোনাম', title: 'শিরোনাম' },
+  { key: 'quote', label: '❝', title: 'উদ্ধৃতি' },
+  { key: 'code', label: '‹/›', title: 'কোড ব্লক' },
+  { key: 'link', label: 'সংযোগ', title: 'সংযোগ' },
+  { key: 'bullet', label: '•', title: 'বুলেট তালিকা' },
+  { key: 'number', label: '১.', title: 'ক্রমিক তালিকা' },
 ];
 
 const clampSize = (value, min, max) => Math.min(max, Math.max(min, Number(value) || min));
 
 function buildTableMarkdown(rows, cols) {
-  const header = Array.from({ length: cols }, (_, i) => `Column ${i + 1}`);
+  const header = Array.from({ length: cols }, (_, i) => `কলাম ${bnNum(i + 1)}`);
   const divider = Array.from({ length: cols }, () => '---');
   const body = Array.from({ length: Math.max(0, rows - 1) }, () =>
     Array.from({ length: cols }, () => '  ')
@@ -106,21 +106,21 @@ export function MarkdownEditor({
   const run = (key) => {
     switch (key) {
       case 'bold':
-        return wrap('**', '**', 'bold text');
+        return wrap('**', '**', 'গাঢ় লেখা');
       case 'italic':
-        return wrap('_', '_', 'italic text');
+        return wrap('_', '_', 'বাঁকা লেখা');
       case 'heading':
-        return prefixLines('## ', 'Heading');
+        return prefixLines('## ', 'শিরোনাম');
       case 'quote':
-        return prefixLines('> ', 'Quote');
+        return prefixLines('> ', 'উদ্ধৃতি');
       case 'code':
-        return wrap('\n```\n', '\n```\n', 'code');
+        return wrap('\n```\n', '\n```\n', 'কোড');
       case 'link':
-        return wrap('[', '](https://)', 'link text');
+        return wrap('[', '](https://)', 'সংযোগের লেখা');
       case 'bullet':
-        return prefixLines('- ', 'List item');
+        return prefixLines('- ', 'তালিকার বিষয়');
       case 'number':
-        return prefixLines((i) => `${i + 1}. `, 'List item');
+        return prefixLines((i) => `${i + 1}. `, 'তালিকার বিষয়');
       default:
         return undefined;
     }
@@ -209,13 +209,13 @@ export function MarkdownEditor({
             </ToolbarButton>
           ))}
           <span className="mx-0.5 h-4 w-px bg-slate-200" />
-          <ToolbarButton title="Insert table" onClick={openTable}>
+          <ToolbarButton title="সারণি ঢোকান" onClick={openTable}>
             ▦
           </ToolbarButton>
-          <ToolbarButton title="Insert inline math" onClick={() => openMath(false)}>
+          <ToolbarButton title="এক লাইনের গণিত ঢোকান" onClick={() => openMath(false)}>
             ∑
           </ToolbarButton>
-          <ToolbarButton title="Insert display math" onClick={() => openMath(true)}>
+          <ToolbarButton title="আলাদা লাইনের গণিত ঢোকান" onClick={() => openMath(true)}>
             ∑<span className="ml-0.5 text-[9px] text-slate-400">▭</span>
           </ToolbarButton>
         </div>
@@ -227,11 +227,11 @@ export function MarkdownEditor({
               type="button"
               onClick={() => setMode(m)}
               className={cn(
-                'rounded px-2 py-0.5 capitalize transition',
+                'rounded px-2 py-0.5 transition',
                 mode === m ? 'bg-white text-indigo-700 shadow-sm' : 'hover:text-slate-700'
               )}
             >
-              {m}
+              {m === 'write' ? 'লেখা' : 'পূর্বরূপ'}
             </button>
           ))}
         </div>
@@ -241,20 +241,20 @@ export function MarkdownEditor({
         <div className="border-b border-slate-200 bg-slate-50/70 p-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Table editor
+              সারণি সম্পাদক
             </p>
             <button
               type="button"
               onClick={closeTable}
               className="text-xs font-medium text-indigo-600 hover:underline"
             >
-              Close
+              বন্ধ করুন
             </button>
           </div>
 
           <div className="flex flex-wrap items-end gap-3">
             <label className="text-xs font-medium text-slate-600">
-              Rows (incl. header)
+              সারি (শিরোনামসহ)
               <input
                 type="number"
                 min="2"
@@ -265,7 +265,7 @@ export function MarkdownEditor({
               />
             </label>
             <label className="text-xs font-medium text-slate-600">
-              Columns
+              কলাম
               <input
                 type="number"
                 min="2"
@@ -277,10 +277,10 @@ export function MarkdownEditor({
             </label>
             <div className="ml-auto flex items-center gap-2">
               <Button type="button" size="sm" variant="secondary" onClick={closeTable}>
-                Cancel
+                বাতিল
               </Button>
               <Button type="button" size="sm" icon="check" onClick={insertTable}>
-                Insert
+                ঢোকান
               </Button>
             </div>
           </div>
@@ -295,14 +295,14 @@ export function MarkdownEditor({
         <div className="border-b border-indigo-100 bg-indigo-50/50 p-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
-              Math editor · {mathDisplay ? 'display' : 'inline'}
+              গণিত সম্পাদক · {mathDisplay ? 'আলাদা লাইন' : 'এক লাইন'}
             </p>
             <button
               type="button"
               onClick={closeMath}
               className="text-xs font-medium text-indigo-600 hover:underline"
             >
-              Close
+              বন্ধ করুন
             </button>
           </div>
           <MathEditor
@@ -311,7 +311,7 @@ export function MarkdownEditor({
             rows={2}
             display={mathDisplay}
             autoFocus
-            placeholder="Type LaTeX, e.g. x^2 + y^2 = r^2"
+            placeholder="যেমন: x^2 + y^2 = r^2"
           />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <label className="flex items-center gap-1.5 text-xs text-slate-600">
@@ -321,11 +321,11 @@ export function MarkdownEditor({
                 onChange={(e) => setMathDisplay(e.target.checked)}
                 className="h-3.5 w-3.5 rounded accent-indigo-600"
               />
-              Display (block) equation
+              আলাদা লাইনে (ব্লক) সমীকরণ
             </label>
             <div className="flex items-center gap-2">
               <Button type="button" size="sm" variant="secondary" onClick={closeMath}>
-                Cancel
+                বাতিল
               </Button>
               <Button
                 type="button"
@@ -334,7 +334,7 @@ export function MarkdownEditor({
                 onClick={insertMath}
                 disabled={!mathDraft.trim()}
               >
-                Insert
+                ঢোকান
               </Button>
             </div>
           </div>
@@ -348,7 +348,7 @@ export function MarkdownEditor({
               {value}
             </Markdown>
           ) : (
-            <p className="text-sm text-slate-400">{placeholder || 'Nothing to preview yet.'}</p>
+            <p className="text-sm text-slate-400">{placeholder || 'এখনো পূর্বরূপ দেখানোর কিছু নেই।'}</p>
           )}
         </div>
       ) : (
@@ -364,8 +364,8 @@ export function MarkdownEditor({
       )}
 
       <div className="border-t border-slate-100 bg-slate-50/70 px-2 py-1 text-[11px] text-slate-400">
-        Markdown supported · inline math <code className="rounded bg-slate-100 px-1">$x^2$</code> ·
-        use ▦ for tables and ∑ for the math editor
+        মার্কডাউন সমর্থিত · এক লাইনের গণিত <code className="rounded bg-slate-100 px-1">$x^2$</code> ·
+        সারণির জন্য ▦ এবং গণিত সম্পাদকের জন্য ∑ ব্যবহার করুন
       </div>
     </div>
   );

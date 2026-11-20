@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useResource } from '../../hooks/useResource.js';
 import { API } from '../../lib/api.js';
-import { DIFFICULTIES, KINDS } from '../../lib/constants.js';
+import { DIFFICULTIES, KIND_LABEL, KINDS } from '../../lib/constants.js';
+import { bnNum } from '../../lib/utils.js';
 import { Icon } from '../Icon.jsx';
 import {
   Button,
@@ -80,7 +81,7 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
     setRemoving(true);
     try {
       await API.questions.remove(deleting.id);
-      toast.success('Question deleted');
+      toast.success('প্রশ্ন মুছে ফেলা হয়েছে');
       setDeleting(null);
       reload();
       onChanged?.();
@@ -96,12 +97,12 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
   return (
     <Card>
       <CardHeader
-        title="Questions"
-        subtitle={showInitialLoading ? 'Loading…' : `${total} total`}
+        title="প্রশ্নসমূহ"
+        subtitle={showInitialLoading ? 'লোড হচ্ছে…' : `মোট ${bnNum(total)}`}
         icon="list"
         actions={
           <Button size="sm" icon="plus" onClick={onCreate}>
-            New question
+            নতুন প্রশ্ন
           </Button>
         }
       />
@@ -115,12 +116,12 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
           <Input
             value={filters.q}
             onChange={updateFilter('q')}
-            placeholder="Search text or math…"
+            placeholder="লেখা বা গণিত খুঁজুন…"
             className="pl-9"
           />
         </div>
         <Select value={filters.chapter_id} onChange={updateFilter('chapter_id')}>
-          <option value="">All chapters</option>
+          <option value="">সব অধ্যায়</option>
           {(chapters || []).map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -128,15 +129,15 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
           ))}
         </Select>
         <Select value={filters.type_id} onChange={updateFilter('type_id')}>
-          <option value="">All types</option>
+          <option value="">সব ধরন</option>
           {(types || []).map((t) => (
             <option key={t.id} value={t.id}>
-              {t.name} ({t.kind})
+              {t.name} ({KIND_LABEL[t.kind] || t.kind})
             </option>
           ))}
         </Select>
         <Select value={filters.kind} onChange={updateFilter('kind')}>
-          <option value="">All kinds</option>
+          <option value="">সব প্রকার</option>
           {KINDS.map((k) => (
             <option key={k.value} value={k.value}>
               {k.label}
@@ -144,7 +145,7 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
           ))}
         </Select>
         <Select value={filters.difficulty} onChange={updateFilter('difficulty')}>
-          <option value="">Any difficulty</option>
+          <option value="">যেকোনো কঠিনতা</option>
           {DIFFICULTIES.map((d) => (
             <option key={d.value} value={d.value}>
               {d.label}
@@ -156,33 +157,33 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
             <Input
               value={filters.lang}
               onChange={updateFilter('lang')}
-              placeholder="Language code (bn, ar…)"
+              placeholder="ভাষা কোড"
             />
           </div>
           {activeFilterCount > 0 && (
             <Button size="sm" variant="ghost" icon="x" onClick={clearFilters}>
-              Clear
+              মুছুন
             </Button>
           )}
         </div>
       </div>
 
       {showInitialLoading ? (
-        <LoadingBlock label="Loading questions…" />
+        <LoadingBlock label="প্রশ্ন লোড হচ্ছে…" />
       ) : error ? (
         <ErrorBlock error={error} onRetry={reload} />
       ) : items.length === 0 ? (
         <EmptyState
           icon="list"
-          title={activeFilterCount > 0 ? 'No matching questions' : 'No questions yet'}
+          title={activeFilterCount > 0 ? 'মিলে যাওয়া প্রশ্ন নেই' : 'এখনো কোনো প্রশ্ন নেই'}
           message={
             activeFilterCount > 0
-              ? 'Try clearing some filters, or add a new question.'
-              : 'Add your first question to start building this subject.'
+              ? 'কিছু ছাঁকনি মুছে দেখুন, অথবা নতুন প্রশ্ন যোগ করুন।'
+              : 'এই বিষয়ের প্রথম প্রশ্ন যোগ করে শুরু করুন।'
           }
           action={
             <Button size="sm" icon="plus" onClick={onCreate}>
-              New question
+              নতুন প্রশ্ন
             </Button>
           }
         />
@@ -202,11 +203,11 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
       {total > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
           <span>
-            Showing{' '}
+            দেখানো হচ্ছে{' '}
             <span className="font-medium text-slate-700">
-              {start}–{end}
+              {bnNum(start)}–{bnNum(end)}
             </span>{' '}
-            of <span className="font-medium text-slate-700">{total}</span>
+            / মোট <span className="font-medium text-slate-700">{bnNum(total)}</span>
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -218,7 +219,7 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
                 setPage((p) => ({ ...p, offset: Math.max(0, p.offset - p.limit) }))
               }
             >
-              Prev
+              আগের
             </Button>
             <Button
               size="sm"
@@ -227,7 +228,7 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
               disabled={page.offset + page.limit >= total}
               onClick={() => setPage((p) => ({ ...p, offset: p.offset + p.limit }))}
             >
-              Next
+              পরের
             </Button>
           </div>
         </div>
@@ -235,15 +236,15 @@ export function QuestionsTab({ subjectId, version, onCreate, onEdit, onChanged }
 
       <ConfirmDialog
         open={!!deleting}
-        title="Delete this question?"
+        title="এই প্রশ্নটি মুছে ফেলবেন?"
         message={
           deleting?.text
             ? `“${String(deleting.text).slice(0, 140)}${
                 String(deleting.text).length > 140 ? '…' : ''
-              }” will be permanently removed.`
-            : 'This question will be permanently removed.'
+              }” স্থায়ীভাবে মুছে যাবে।`
+            : 'এই প্রশ্নটি স্থায়ীভাবে মুছে যাবে।'
         }
-        confirmLabel="Delete question"
+        confirmLabel="প্রশ্ন মুছুন"
         loading={removing}
         onCancel={() => !removing && setDeleting(null)}
         onConfirm={remove}

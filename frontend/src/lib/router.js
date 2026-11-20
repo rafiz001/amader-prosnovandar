@@ -54,17 +54,17 @@ export function pathFor(item, current) {
 }
 
 export function buildCrumbs(route, labels) {
-  const classes = { name: 'classes', label: 'Classes', path: '/classes' };
+  const classes = { name: 'classes', label: 'শ্রেণিসমূহ', path: '/classes' };
   const current = (name, id) => ({
     name,
     id,
-    label: labels[route.path] || (name === 'class' ? 'Class' : 'Subject'),
+    label: labels[route.path] || (name === 'class' ? 'শ্রেণি' : 'বিষয়'),
     path: route.path,
   });
 
   switch (route.name) {
     case 'institute':
-      return [{ name: 'institute', label: 'Institute', path: '/institute' }];
+      return [{ name: 'institute', label: 'প্রতিষ্ঠান', path: '/institute' }];
     case 'classes':
       return [classes];
     case 'class':
@@ -75,7 +75,7 @@ export function buildCrumbs(route, labels) {
         crumbs.push({
           name: 'class',
           id: route.classId,
-          label: labels[`/classes/${route.classId}`] || 'Class',
+          label: labels[`/classes/${route.classId}`] || 'শ্রেণি',
           path: `/classes/${route.classId}`,
         });
       }
@@ -83,10 +83,10 @@ export function buildCrumbs(route, labels) {
       return crumbs;
     }
     case 'generate':
-      return [{ name: 'generate', label: 'Generate', path: '/generate' }];
+      return [{ name: 'generate', label: 'প্রশ্নপত্র তৈরি', path: '/generate' }];
     case 'papers':
-      return [{ name: 'papers', label: 'Papers', path: '/papers' }];
+      return [{ name: 'papers', label: 'প্রশ্নপত্রসমূহ', path: '/papers' }];
     default:
-      return [{ name: 'notFound', label: 'Page not found', path: route.path || '/' }];
+      return [{ name: 'notFound', label: 'পৃষ্ঠা পাওয়া যায়নি', path: route.path || '/' }];
   }
 }

@@ -4,32 +4,32 @@ import { INPUT_CLASS } from '../ui/index.js';
 import { MathTex } from './MathTex.jsx';
 
 const SYMBOLS = [
-  { label: 'a/b', tex: '\\frac{a}{b}', title: 'Fraction' },
-  { label: '√', tex: '\\sqrt{x}', title: 'Square root' },
-  { label: 'xⁿ', tex: 'x^{n}', title: 'Power' },
-  { label: 'xₙ', tex: 'x_{n}', title: 'Subscript' },
-  { label: 'π', tex: '\\pi', title: 'Pi' },
-  { label: '×', tex: '\\times', title: 'Multiply' },
-  { label: '÷', tex: '\\div', title: 'Divide' },
-  { label: '±', tex: '\\pm', title: 'Plus/minus' },
-  { label: '≤', tex: '\\leq', title: 'Less than or equal' },
-  { label: '≥', tex: '\\geq', title: 'Greater than or equal' },
-  { label: '≠', tex: '\\neq', title: 'Not equal' },
-  { label: '∞', tex: '\\infty', title: 'Infinity' },
-  { label: 'Σ', tex: '\\sum_{i=1}^{n}', title: 'Sum' },
-  { label: '∫', tex: '\\int_{a}^{b}', title: 'Integral' },
-  { label: 'lim', tex: '\\lim_{x \\to 0}', title: 'Limit' },
-  { label: 'α', tex: '\\alpha', title: 'Alpha' },
-  { label: 'β', tex: '\\beta', title: 'Beta' },
-  { label: 'θ', tex: '\\theta', title: 'Theta' },
-  { label: 'Δ', tex: '\\Delta', title: 'Delta' },
-  { label: '∠', tex: '\\angle', title: 'Angle' },
-  { label: '△', tex: '\\triangle', title: 'Triangle' },
-  { label: '→', tex: '\\to', title: 'Arrow' },
-  { label: 'x̄', tex: '\\overline{x}', title: 'Overline' },
-  { label: 'sin', tex: '\\sin', title: 'Sine' },
-  { label: 'cos', tex: '\\cos', title: 'Cosine' },
-  { label: 'log', tex: '\\log', title: 'Logarithm' },
+  { label: 'a/b', tex: '\\frac{a}{b}', title: 'ভগ্নাংশ' },
+  { label: '√', tex: '\\sqrt{x}', title: 'বর্গমূল' },
+  { label: 'xⁿ', tex: 'x^{n}', title: 'ঘাত' },
+  { label: 'xₙ', tex: 'x_{n}', title: 'অধোলিপি' },
+  { label: 'π', tex: '\\pi', title: 'পাই' },
+  { label: '×', tex: '\\times', title: 'গুণ' },
+  { label: '÷', tex: '\\div', title: 'ভাগ' },
+  { label: '±', tex: '\\pm', title: 'যোগ/বিয়োগ' },
+  { label: '≤', tex: '\\leq', title: 'ছোট বা সমান' },
+  { label: '≥', tex: '\\geq', title: 'বড় বা সমান' },
+  { label: '≠', tex: '\\neq', title: 'সমান নয়' },
+  { label: '∞', tex: '\\infty', title: 'অসীম' },
+  { label: 'Σ', tex: '\\sum_{i=1}^{n}', title: 'সমষ্টি' },
+  { label: '∫', tex: '\\int_{a}^{b}', title: 'সমাকলন' },
+  { label: 'lim', tex: '\\lim_{x \\to 0}', title: 'সীমা' },
+  { label: 'α', tex: '\\alpha', title: 'আলফা' },
+  { label: 'β', tex: '\\beta', title: 'বিটা' },
+  { label: 'θ', tex: '\\theta', title: 'থিটা' },
+  { label: 'Δ', tex: '\\Delta', title: 'ডেল্টা' },
+  { label: '∠', tex: '\\angle', title: 'কোণ' },
+  { label: '△', tex: '\\triangle', title: 'ত্রিভুজ' },
+  { label: '→', tex: '\\to', title: 'তীর' },
+  { label: 'x̄', tex: '\\overline{x}', title: 'ঊর্ধ্বরেখা' },
+  { label: 'sin', tex: '\\sin', title: 'সাইন' },
+  { label: 'cos', tex: '\\cos', title: 'কোসাইন' },
+  { label: 'log', tex: '\\log', title: 'লগারিদম' },
 ];
 
 export function MathEditor({
@@ -37,7 +37,7 @@ export function MathEditor({
   onChange,
   rows = 3,
   display = false,
-  placeholder = 'e.g. \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}',
+  placeholder = 'যেমন: \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}',
   autoFocus = false,
   className,
 }) {
@@ -89,7 +89,7 @@ export function MathEditor({
         {value.trim() ? (
           <MathTex tex={value} display={display} className="text-slate-800" />
         ) : (
-          <span className="text-xs text-slate-400">Live preview</span>
+          <span className="text-xs text-slate-400">তাৎক্ষণিক পূর্বরূপ</span>
         )}
       </div>
     </div>

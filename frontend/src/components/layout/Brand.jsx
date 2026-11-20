@@ -8,9 +8,9 @@ export function Brand({ compact = false }) {
       </span>
       {!compact && (
         <div className="leading-tight">
-          <p className="text-sm font-semibold text-slate-900">Question Bank</p>
+          <p className="text-sm font-semibold text-slate-900">প্রশ্নব্যাংক</p>
           <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
-            Admin · v2.0
+            অ্যাডমিন · সংস্করণ ২.০
           </p>
         </div>
       )}

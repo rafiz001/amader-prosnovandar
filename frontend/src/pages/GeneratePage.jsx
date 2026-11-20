@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useToast } from '../context/ToastContext.jsx';
 import { useResource } from '../hooks/useResource.js';
 import { API } from '../lib/api.js';
-import { num } from '../lib/utils.js';
+import { bnNum } from '../lib/utils.js';
 import { Button, Card, CardHeader, Field, Input, PageHeader, Select } from '../components/ui/index.js';
 import { QuestionPicker } from '../components/questions/QuestionPicker.jsx';
 import { PaperView } from '../components/paper/PaperView.jsx';
@@ -16,7 +16,7 @@ export function GeneratePage() {
   const { data: classes } = useResource(() => API.classes.list(), []);
 
   const [form, setForm] = useState({
-    title: 'Question Paper',
+    title: 'প্রশ্নপত্র',
     class_id: '',
     subject_id: '',
     shuffle_questions: false,
@@ -53,19 +53,19 @@ export function GeneratePage() {
         : [...list, q]
     );
 
-  const totalMarks = selected.reduce((sum, q) => sum + num(q.marks), 0);
+  const totalMarks = selected.reduce((sum, q) => sum + Number(q.marks || 0), 0);
 
   const handleGenerate = async (e) => {
     e?.preventDefault?.();
     if (!form.subject_id) {
-      return toast.error('Choose a subject to pick questions from');
+      return toast.error('প্রশ্ন বাছাইয়ের জন্য একটি বিষয় নির্বাচন করুন');
     }
     if (selected.length === 0) {
-      return toast.error('Select at least one question for the paper');
+      return toast.error('প্রশ্নপত্রের জন্য অন্তত একটি প্রশ্ন নির্বাচন করুন');
     }
 
     const payload = {
-      title: form.title.trim() || 'Question Paper',
+      title: form.title.trim() || 'প্রশ্নপত্র',
       subject_id: Number(form.subject_id),
       question_ids: selected.map((q) => q.id),
       shuffle_questions: form.shuffle_questions,
@@ -83,7 +83,7 @@ export function GeneratePage() {
     try {
       const paper = await API.generate(payload);
       setResult(paper);
-      toast.success(payload.save ? 'Paper generated and saved' : 'Paper generated');
+      toast.success(payload.save ? 'প্রশ্নপত্র তৈরি ও সংরক্ষণ হয়েছে' : 'প্রশ্নপত্র তৈরি হয়েছে');
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -95,16 +95,16 @@ export function GeneratePage() {
     return (
       <>
         <PageHeader
-          title="Generated paper"
-          subtitle="Review the paper, then print or save it"
+          title="তৈরি প্রশ্নপত্র"
+          subtitle="প্রশ্নপত্র দেখে নিন, তারপর মুদ্রণ বা সংরক্ষণ করুন"
           icon="sparkles"
           actions={
             <Button icon="refresh" onClick={() => setResult(null)}>
-              New paper
+              নতুন প্রশ্নপত্র
             </Button>
           }
         />
-        <PaperView paper={result} onBack={() => setResult(null)} backLabel="Back to form" />
+        <PaperView paper={result} onBack={() => setResult(null)} backLabel="ফর্মে ফিরে যান" />
       </>
     );
   }
@@ -112,21 +112,21 @@ export function GeneratePage() {
   return (
     <>
       <PageHeader
-        title="Generate paper"
-        subtitle="Pick the questions you want, then build the paper"
+        title="প্রশ্নপত্র তৈরি"
+        subtitle="যে প্রশ্নগুলো চান বেছে নিন, তারপর প্রশ্নপত্র তৈরি করুন"
         icon="sparkles"
       />
 
       <form onSubmit={handleGenerate} className="space-y-4">
         <Card>
-          <CardHeader title="Scope" icon="layers" />
+          <CardHeader title="পরিধি" icon="layers" />
           <div className="grid gap-4 p-4 sm:grid-cols-3 sm:p-5">
-            <Field label="Title" required>
+            <Field label="শিরোনাম" required>
               <Input value={form.title} onChange={set('title')} />
             </Field>
-            <Field label="Class">
+            <Field label="শ্রেণি">
               <Select value={form.class_id} onChange={changeClass}>
-                <option value="">— None —</option>
+                <option value="">— কোনোটি নয় —</option>
                 {(classes || []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -134,13 +134,13 @@ export function GeneratePage() {
                 ))}
               </Select>
             </Field>
-            <Field label="Subject" hint="Questions are listed for this subject" required>
+            <Field label="বিষয়" hint="এই বিষয়ের প্রশ্নগুলো তালিকায় দেখানো হবে" required>
               <Select
                 value={form.subject_id}
                 onChange={changeSubject}
                 disabled={!form.class_id}
               >
-                <option value="">— None —</option>
+                <option value="">— কোনোটি নয় —</option>
                 {(classSubjects || []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -160,13 +160,13 @@ export function GeneratePage() {
         />
 
         <Card>
-          <CardHeader title="Output" icon="file" />
+          <CardHeader title="ফলাফল" icon="file" />
           <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
             {[
-              ['shuffle_questions', 'Shuffle questions'],
-              ['shuffle_options', 'Shuffle MCQ options (correct answer is updated)'],
-              ['include_answers', 'Include answers & answer key'],
-              ['save', 'Save the paper to “Papers”'],
+              ['shuffle_questions', 'প্রশ্নের ক্রম এলোমেলো করুন'],
+              ['shuffle_options', 'বহুনির্বাচনি বিকল্পের ক্রম এলোমেলো করুন (সঠিক উত্তর হালনাগাদ হবে)'],
+              ['include_answers', 'উত্তর ও উত্তরমালা অন্তর্ভুক্ত করুন'],
+              ['save', 'প্রশ্নপত্রটি “প্রশ্নপত্রসমূহ”-এ সংরক্ষণ করুন'],
             ].map(([key, label]) => (
               <label
                 key={key}
@@ -181,13 +181,13 @@ export function GeneratePage() {
                 {label}
               </label>
             ))}
-            <Field label="Duration (minutes)" className="sm:col-span-2">
+            <Field label="সময়কাল (মিনিট)" className="sm:col-span-2">
               <Input
                 type="number"
                 min="1"
                 value={form.duration_minutes}
                 onChange={set('duration_minutes')}
-                placeholder="90"
+                placeholder="৯০"
               />
             </Field>
           </div>
@@ -195,17 +195,17 @@ export function GeneratePage() {
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-slate-500">
-            <span className="font-semibold text-slate-700">{selected.length}</span> question
-            {selected.length === 1 ? '' : 's'} selected
+            <span className="font-semibold text-slate-700">{bnNum(selected.length)}</span>টি প্রশ্ন
+            নির্বাচিত
             {selected.length > 0 && (
               <>
                 {' '}
-                · <span className="font-semibold text-slate-700">{num(totalMarks)}</span> marks
+                · <span className="font-semibold text-slate-700">{bnNum(totalMarks)}</span> নম্বর
               </>
             )}
           </p>
           <Button type="submit" icon="sparkles" loading={generating}>
-            Generate paper
+            প্রশ্নপত্র তৈরি করুন
           </Button>
         </div>
       </form>

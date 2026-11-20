@@ -3,10 +3,9 @@ import { useToast } from '../../context/ToastContext.jsx';
 import { useResource } from '../../hooks/useResource.js';
 import { API } from '../../lib/api.js';
 import { DIFFICULTIES, KIND_LABEL } from '../../lib/constants.js';
-import { cn } from '../../lib/utils.js';
+import { cn, optionLetter } from '../../lib/utils.js';
 import { Icon } from '../Icon.jsx';
 import { MarkdownEditor } from '../markdown/MarkdownEditor.jsx';
-import { MathEditor } from '../markdown/MathEditor.jsx';
 import { Button, Field, Input, LoadingBlock, Modal, Select } from '../ui/index.js';
 
 export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
@@ -32,7 +31,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
     description: '',
     marks: 1,
     difficulty: 'medium',
-    lang: 'en',
+    lang: 'bn',
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -64,7 +63,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
       description: existing.description || '',
       marks: existing.marks ?? 1,
       difficulty: existing.difficulty || 'medium',
-      lang: existing.lang || 'en',
+      lang: existing.lang || 'bn',
     });
     setRemoveImage(false);
     setImageFile(null);
@@ -94,7 +93,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
   const onPickImage = (file) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be 5 MB or smaller');
+      toast.error('ছবিটি ৫ মেগাবাইট বা তার কম হতে হবে');
       if (fileRef.current) fileRef.current.value = '';
       return;
     }
@@ -116,25 +115,25 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
     const hasContent =
       form.text.trim() || form.math.trim() || imageFile || (!removeImage && existing?.image_url);
     if (!hasContent) {
-      toast.error('Add question text, math, or an image');
+      toast.error('প্রশ্নের লেখা, গণিত বা একটি ছবি যোগ করুন');
       return false;
     }
     if (!form.type_id) {
-      toast.error('Choose a question type');
+      toast.error('প্রশ্নের ধরন বাছুন');
       return false;
     }
     if (kind === 'mcq') {
       if (form.options.some((o) => !String(o).trim())) {
-        toast.error('All 4 options are required');
+        toast.error('চারটি বিকল্পই আবশ্যক');
         return false;
       }
       if (![1, 2, 3, 4].includes(Number(form.correct_option))) {
-        toast.error('Pick the correct option (1–4)');
+        toast.error('সঠিক বিকল্পটি বাছুন (১–৪)');
         return false;
       }
     }
     if (kind === 'true_false' && !['true', 'false'].includes(form.answer)) {
-      toast.error('Choose the correct answer');
+      toast.error('সঠিক উত্তর বাছুন');
       return false;
     }
     return true;
@@ -200,14 +199,14 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
         } else {
           await API.questions.update(questionId, buildPayload());
         }
-        toast.success('Question updated');
+        toast.success('প্রশ্ন হালনাগাদ হয়েছে');
       } else {
         if (needsMultipart) {
           await API.questions.createForm(subjectId, buildFormData());
         } else {
           await API.questions.create(subjectId, buildPayload());
         }
-        toast.success('Question created');
+        toast.success('প্রশ্ন তৈরি হয়েছে');
       }
       onSaved?.();
     } catch (err) {
@@ -221,40 +220,40 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
     <Modal
       open
       onClose={() => !saving && onClose?.()}
-      title={isEdit ? 'Edit question' : 'New question'}
+      title={isEdit ? 'প্রশ্ন সম্পাদনা' : 'নতুন প্রশ্ন'}
       description={
         selectedType
-          ? `Type: ${selectedType.name} · ${KIND_LABEL[kind] || kind}`
-          : 'Choose a question type'
+          ? `ধরন: ${selectedType.name} · ${KIND_LABEL[kind] || kind}`
+          : 'প্রশ্নের ধরন বাছুন'
       }
       size="xl"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Cancel
+            বাতিল
           </Button>
           <Button icon="save" onClick={submit} loading={saving}>
-            {isEdit ? 'Save changes' : 'Create question'}
+            {isEdit ? 'পরিবর্তন সংরক্ষণ করুন' : 'প্রশ্ন তৈরি করুন'}
           </Button>
         </>
       }
     >
       {isEdit && loadingQ && !existing ? (
-        <LoadingBlock label="Loading question…" />
+        <LoadingBlock label="প্রশ্ন লোড হচ্ছে…" />
       ) : (
         <form onSubmit={submit} className="space-y-5">
           {/* Type + chapter */}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Question type"
+              label="প্রশ্নের ধরন"
               required
-              hint="The type decides which fields are required"
+              hint="ধরন অনুযায়ী কোন ঘরগুলো আবশ্যক তা নির্ধারিত হয়"
             >
               <Select
                 value={form.type_id}
                 onChange={(e) => setForm((f) => ({ ...f, type_id: e.target.value }))}
               >
-                <option value="">— Select —</option>
+                <option value="">— নির্বাচন করুন —</option>
                 {(types || []).map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name} ({KIND_LABEL[t.kind] || t.kind})
@@ -262,12 +261,12 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                 ))}
               </Select>
             </Field>
-            <Field label="Chapter" hint="Leave empty for no chapter">
+            <Field label="অধ্যায়" hint="কোনো অধ্যায় না থাকলে খালি রাখুন">
               <Select
                 value={form.chapter_id}
                 onChange={(e) => setForm((f) => ({ ...f, chapter_id: e.target.value }))}
               >
-                <option value="">— None —</option>
+                <option value="">— কোনোটি নয় —</option>
                 {(chapters || []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -277,10 +276,10 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
             </Field>
           </div>
 
-          {/* Text + math */}
+          {/* Text */}
           <Field
-            label="Question text"
-            hint="Markdown supported — inline math like $x^2$ renders with KaTeX"
+            label="প্রশ্নের লেখা"
+            hint="মার্কডাউন সমর্থিত — $x^2$ এর মতো এক লাইনের গণিত ক্যাটেক দিয়ে রেন্ডার হয়"
           >
             <MarkdownEditor
               rows={4}
@@ -290,23 +289,11 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
             />
           </Field>
 
-          <Field
-            label="Display math (LaTeX)"
-            hint="Optional — shown as a block equation with a live KaTeX preview"
-          >
-            <MathEditor
-              value={form.math}
-              onChange={(v) => setForm((f) => ({ ...f, math: v }))}
-              rows={2}
-              placeholder="A = \pi r^2"
-            />
-          </Field>
-
           {/* Kind-specific fields */}
           {kind === 'mcq' && (
             <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-indigo-700">
-                Options · pick the correct one · inline math $...$ supported
+                বিকল্প · সঠিকটি বাছুন · এক লাইনের গণিত $...$ সমর্থিত
               </p>
               <div className="space-y-2">
                 {form.options.map((opt, i) => {
@@ -330,7 +317,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                         className="h-4 w-4 accent-emerald-600"
                       />
                       <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-slate-100 text-xs font-semibold text-slate-600">
-                        {String.fromCharCode(64 + value)}
+                        {optionLetter(value - 1)}
                       </span>
                       <Input
                         value={opt}
@@ -341,7 +328,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                             return { ...f, options: next };
                           })
                         }
-                        placeholder={`Option ${String.fromCharCode(64 + value)}`}
+                        placeholder={`বিকল্প ${optionLetter(value - 1)}`}
                         className="border-0 bg-transparent shadow-none focus:ring-0"
                       />
                     </label>
@@ -352,7 +339,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
           )}
 
           {kind === 'true_false' && (
-            <Field label="Correct answer" required>
+            <Field label="সঠিক উত্তর" required>
               <div className="flex gap-2">
                 {['true', 'false'].map((v) => (
                   <button
@@ -366,7 +353,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     )}
                   >
-                    {v === 'true' ? 'True' : 'False'}
+                    {v === 'true' ? 'সত্য' : 'মিথ্যা'}
                   </button>
                 ))}
               </div>
@@ -374,42 +361,42 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
           )}
 
           {kind === 'text' && (
-            <Field label="Model answer" hint="Markdown and math supported — saved with the question">
+            <Field label="আদর্শ উত্তর" hint="মার্কডাউন ও গণিত সমর্থিত — প্রশ্নের সাথে সংরক্ষিত হয়">
               <MarkdownEditor
                 rows={3}
                 value={form.answer}
                 onChange={(v) => setForm((f) => ({ ...f, answer: v }))}
-                placeholder="Optional model answer"
+                placeholder="ঐচ্ছিক আদর্শ উত্তর"
               />
             </Field>
           )}
 
-          <Field label="Explanation / solution" hint="Markdown and math supported">
+          <Field label="ব্যাখ্যা / সমাধান" hint="মার্কডাউন ও গণিত সমর্থিত">
             <MarkdownEditor
               rows={3}
               value={form.description}
               onChange={(v) => setForm((f) => ({ ...f, description: v }))}
-              placeholder="Optional solution or explanation"
+              placeholder="ঐচ্ছিক সমাধান বা ব্যাখ্যা"
             />
           </Field>
 
           {/* Figure */}
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Figure
+              চিত্র
             </p>
             {previewSrc ? (
               <div className="relative inline-block">
                 <img
                   src={previewSrc}
-                  alt="Figure preview"
+                  alt="চিত্রের পূর্বরূপ"
                   className="max-h-44 rounded-lg border border-slate-200 bg-slate-50 object-contain p-2"
                 />
                 <button
                   type="button"
                   onClick={clearImage}
                   className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-rose-600 text-white shadow-sm hover:bg-rose-700"
-                  aria-label="Remove image"
+                  aria-label="ছবি সরান"
                 >
                   <Icon name="x" className="h-4 w-4" />
                 </button>
@@ -421,7 +408,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                 className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 text-sm text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
               >
                 <Icon name="upload" className="h-4 w-4" />
-                Click to attach an image (PNG, JPEG, GIF, WebP · max 5 MB)
+                ছবি সংযুক্ত করতে ক্লিক করুন (পিএনজি, জেপিইজি, জিআইএফ, ওয়েবপি · সর্বোচ্চ ৫ মেগাবাইট)
               </button>
             )}
             <input
@@ -437,14 +424,14 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                 onClick={() => fileRef.current?.click()}
                 className="mt-2 text-xs font-medium text-indigo-600 hover:underline"
               >
-                Replace image
+                ছবি বদলান
               </button>
             )}
           </div>
 
           {/* Marks / difficulty / lang */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Marks">
+            <Field label="নম্বর">
               <Input
                 type="number"
                 min="0"
@@ -453,7 +440,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                 onChange={(e) => setForm((f) => ({ ...f, marks: e.target.value }))}
               />
             </Field>
-            <Field label="Difficulty">
+            <Field label="কঠিনতা">
               <Select
                 value={form.difficulty}
                 onChange={(e) => setForm((f) => ({ ...f, difficulty: e.target.value }))}
@@ -465,11 +452,11 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                 ))}
               </Select>
             </Field>
-            <Field label="Language" hint="RTL for ar, fa, ur, he">
+            <Field label="ভাষা" hint="আরবি, ফারসি, উর্দু ও হিব্রুর জন্য ডান-থেকে-বাম">
               <Input
                 value={form.lang}
                 onChange={(e) => setForm((f) => ({ ...f, lang: e.target.value }))}
-                placeholder="bn"
+                placeholder="ভাষা কোড"
               />
             </Field>
           </div>

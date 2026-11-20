@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useResource } from '../../hooks/useResource.js';
 import { API } from '../../lib/api.js';
-import { num } from '../../lib/utils.js';
+import { bnNum } from '../../lib/utils.js';
 import { Icon } from '../Icon.jsx';
 import {
   Button,
@@ -44,17 +44,17 @@ export function TypesTab({ subjectId, onChanged }) {
   const save = async (e) => {
     e?.preventDefault?.();
     const name = form.name.trim();
-    if (!name) return toast.error('Type name is required');
+    if (!name) return toast.error('ধরনের নাম আবশ্যক');
     setSaving(true);
     try {
       if (editor.mode === 'create') {
         await API.types.create(subjectId, { name, kind: form.kind });
-        toast.success('Question type created');
+        toast.success('প্রশ্নের ধরন তৈরি হয়েছে');
       } else {
         const payload = { name };
         if (form.kind !== editor.type.kind) payload.kind = form.kind;
         await API.types.update(editor.type.id, payload);
-        toast.success('Question type updated');
+        toast.success('প্রশ্নের ধরন হালনাগাদ হয়েছে');
       }
       setEditor(null);
       reload();
@@ -71,7 +71,7 @@ export function TypesTab({ subjectId, onChanged }) {
     setRemoving(true);
     try {
       await API.types.remove(deleting.id);
-      toast.success('Question type deleted');
+      toast.success('প্রশ্নের ধরন মুছে ফেলা হয়েছে');
       setDeleting(null);
       reload();
       onChanged?.();
@@ -88,27 +88,27 @@ export function TypesTab({ subjectId, onChanged }) {
     <>
       <Card>
         <CardHeader
-          title="Question types"
-          subtitle="Each subject owns its own list of types"
+          title="প্রশ্নের ধরন"
+          subtitle="প্রতিটি বিষয়ের নিজস্ব ধরনের তালিকা থাকে"
           icon="grid"
           actions={
             <Button size="sm" icon="plus" onClick={openCreate}>
-              New type
+              নতুন ধরন
             </Button>
           }
         />
         {loading ? (
-          <LoadingBlock label="Loading types…" />
+          <LoadingBlock label="ধরন লোড হচ্ছে…" />
         ) : error ? (
           <ErrorBlock error={error} onRetry={reload} />
         ) : (types || []).length === 0 ? (
           <EmptyState
             icon="grid"
-            title="No question types"
-            message="Every subject starts with MCQ, True/False and Plain, but they seem to be missing."
+            title="কোনো প্রশ্নের ধরন নেই"
+            message="প্রতিটি বিষয় বহুনির্বাচনি, সত্য/মিথ্যা ও লিখিত দিয়ে শুরু হয়, কিন্তু সেগুলো অনুপস্থিত মনে হচ্ছে।"
             action={
               <Button size="sm" icon="plus" onClick={openCreate}>
-                New type
+                নতুন ধরন
               </Button>
             }
           />
@@ -119,16 +119,14 @@ export function TypesTab({ subjectId, onChanged }) {
                 <KindBadge kind={t.kind} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-900">{t.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {num(t.question_count)} {t.question_count === 1 ? 'question' : 'questions'}
-                  </p>
+                  <p className="text-xs text-slate-500">{bnNum(t.question_count)}টি প্রশ্ন</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
                     size="icon"
                     variant="ghost"
                     onClick={() => openEdit(t)}
-                    aria-label="Edit type"
+                    aria-label="ধরন সম্পাদনা"
                   >
                     <Icon name="pencil" className="h-4 w-4" />
                   </Button>
@@ -136,7 +134,7 @@ export function TypesTab({ subjectId, onChanged }) {
                     size="icon"
                     variant="ghost"
                     onClick={() => setDeleting(t)}
-                    aria-label="Delete type"
+                    aria-label="ধরন মুছুন"
                   >
                     <Icon name="trash" className="h-4 w-4 text-rose-600" />
                   </Button>
@@ -150,21 +148,21 @@ export function TypesTab({ subjectId, onChanged }) {
       <Modal
         open={!!editor}
         onClose={() => !saving && setEditor(null)}
-        title={editor?.mode === 'create' ? 'New question type' : 'Edit question type'}
+        title={editor?.mode === 'create' ? 'নতুন প্রশ্নের ধরন' : 'প্রশ্নের ধরন সম্পাদনা'}
         size="sm"
         footer={
           <>
             <Button variant="secondary" onClick={() => setEditor(null)} disabled={saving}>
-              Cancel
+              বাতিল
             </Button>
             <Button onClick={save} loading={saving}>
-              {editor?.mode === 'create' ? 'Create' : 'Save'}
+              {editor?.mode === 'create' ? 'তৈরি করুন' : 'সংরক্ষণ করুন'}
             </Button>
           </>
         }
       >
         <form onSubmit={save} className="space-y-4">
-          <Field label="Name" required hint="Unique within this subject (case-insensitive)">
+          <Field label="নাম" required hint="এই বিষয়ের মধ্যে অনন্য (বড়-ছোট হাতের অক্ষর নির্বিশেষে)">
             <Input
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -173,12 +171,12 @@ export function TypesTab({ subjectId, onChanged }) {
             />
           </Field>
           <Field
-            label="Kind"
+            label="ধরন"
             required
             hint={
               inUse
-                ? 'Cannot be changed while questions use this type'
-                : 'Determines how questions are validated'
+                ? 'এই ধরন ব্যবহার করে প্রশ্ন থাকা অবস্থায় পরিবর্তন করা যাবে না'
+                : 'প্রশ্ন কীভাবে যাচাই হবে তা নির্ধারণ করে'
             }
           >
             <Select
@@ -186,9 +184,9 @@ export function TypesTab({ subjectId, onChanged }) {
               onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value }))}
               disabled={inUse}
             >
-              <option value="mcq">MCQ — 4 options + correct option</option>
-              <option value="true_false">True/False</option>
-              <option value="text">Text — plain, optional model answer</option>
+              <option value="mcq">বহুনির্বাচনি — ৪টি বিকল্প + সঠিক বিকল্প</option>
+              <option value="true_false">সত্য/মিথ্যা</option>
+              <option value="text">লিখিত — সাধারণ, ঐচ্ছিক আদর্শ উত্তর</option>
             </Select>
           </Field>
         </form>
@@ -196,13 +194,13 @@ export function TypesTab({ subjectId, onChanged }) {
 
       <ConfirmDialog
         open={!!deleting}
-        title={`Delete “${deleting?.name || ''}”?`}
+        title={`“${deleting?.name || ''}” মুছে ফেলবেন?`}
         message={
           deleting && deleting.question_count > 0
-            ? `${deleting.question_count} question(s) still use this type. Delete or move them first — the API will refuse otherwise.`
-            : 'This removes the type from this subject.'
+            ? `${bnNum(deleting.question_count)}টি প্রশ্ন এখনো এই ধরন ব্যবহার করছে। আগে সেগুলো মুছুন বা সরান — অন্যথায় এপিআই অনুরোধ প্রত্যাখ্যান করবে।`
+            : 'এটি এই বিষয় থেকে ধরনটি সরিয়ে দেবে।'
         }
-        confirmLabel="Delete type"
+        confirmLabel="ধরন মুছুন"
         loading={removing}
         onCancel={() => !removing && setDeleting(null)}
         onConfirm={remove}

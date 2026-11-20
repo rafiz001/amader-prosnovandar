@@ -3,7 +3,7 @@ import { Icon } from '../Icon.jsx';
 import { Button } from './Button.jsx';
 import { Spinner } from './Spinner.jsx';
 
-export function LoadingBlock({ label = 'Loading…', className }) {
+export function LoadingBlock({ label = 'লোড হচ্ছে…', className }) {
   return (
     <div className={cn('flex items-center justify-center gap-3 py-14 text-sm text-slate-500', className)}>
       <Spinner className="h-5 w-5 text-indigo-500" />
@@ -24,12 +24,12 @@ export function ErrorBlock({ error, onRetry, className }) {
         <Icon name="alert" className="h-5 w-5" />
       </span>
       <div>
-        <p className="text-sm font-semibold text-rose-800">Something went wrong</p>
-        <p className="mt-1 max-w-md text-sm text-rose-700/80">{error?.message || 'Unknown error'}</p>
+        <p className="text-sm font-semibold text-rose-800">কিছু একটা সমস্যা হয়েছে</p>
+        <p className="mt-1 max-w-md text-sm text-rose-700/80">{error?.message || 'অজানা ত্রুটি'}</p>
       </div>
       {onRetry && (
         <Button variant="secondary" size="sm" icon="refresh" onClick={onRetry}>
-          Try again
+          আবার চেষ্টা করুন
         </Button>
       )}
     </div>

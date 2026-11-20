@@ -7,7 +7,7 @@ export function Topbar({ stack, onGoto, onOpenSidebar, canGoBack, onBack }) {
       <button
         onClick={onOpenSidebar}
         className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 lg:hidden"
-        aria-label="Open menu"
+        aria-label="মেনু খুলুন"
       >
         <Icon name="menu" className="h-5 w-5" />
       </button>
@@ -16,7 +16,7 @@ export function Topbar({ stack, onGoto, onOpenSidebar, canGoBack, onBack }) {
         <button
           onClick={onBack}
           className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
-          aria-label="Back"
+          aria-label="পেছনে"
         >
           <Icon name="arrowLeft" className="h-5 w-5" />
         </button>
@@ -33,7 +33,7 @@ export function Topbar({ stack, onGoto, onOpenSidebar, canGoBack, onBack }) {
           rel="noreferrer"
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
         >
-          <Icon name="file" className="h-3.5 w-3.5" /> API docs
+          <Icon name="file" className="h-3.5 w-3.5" /> এপিআই নথি
         </a>
       </div>
     </header>

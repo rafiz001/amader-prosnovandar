@@ -44,7 +44,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
           <button
             onClick={() => onClose?.()}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-            aria-label="Close"
+            aria-label="বন্ধ করুন"
           >
             <Icon name="x" className="h-5 w-5" />
           </button>

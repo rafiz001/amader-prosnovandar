@@ -3,7 +3,7 @@ import { useNav } from '../context/NavContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useResource } from '../hooks/useResource.js';
 import { API } from '../lib/api.js';
-import { num, prettyDate } from '../lib/utils.js';
+import { bnNum, prettyDate } from '../lib/utils.js';
 import { Icon } from '../components/Icon.jsx';
 import {
   Badge,
@@ -34,7 +34,7 @@ export function ClassPage({ classId }) {
   useEffect(() => {
     const notFound = [clsRes.error, subjRes.error].find((e) => e && e.status === 404);
     if (notFound) {
-      toast.error('Class not found');
+      toast.error('শ্রেণি পাওয়া যায়নি');
       nav.back();
     }
   }, [clsRes.error, subjRes.error, nav, toast]);
@@ -55,18 +55,18 @@ export function ClassPage({ classId }) {
   const save = async (e) => {
     e?.preventDefault?.();
     const name = form.name.trim();
-    if (!name) return toast.error('Subject name is required');
+    if (!name) return toast.error('বিষয়ের নাম আবশ্যক');
     setSaving(true);
     try {
       if (editor.mode === 'create') {
         await API.subjects.create(classId, { name, code: form.code.trim() });
-        toast.success('Subject created');
+        toast.success('বিষয় তৈরি হয়েছে');
       } else {
         await API.subjects.update(editor.subject.id, {
           name,
           code: form.code.trim(),
         });
-        toast.success('Subject updated');
+        toast.success('বিষয় হালনাগাদ হয়েছে');
       }
       setEditor(null);
       clsRes.reload();
@@ -83,7 +83,7 @@ export function ClassPage({ classId }) {
     setRemoving(true);
     try {
       await API.subjects.remove(deleting.id);
-      toast.success('Subject deleted');
+      toast.success('বিষয় মুছে ফেলা হয়েছে');
       setDeleting(null);
       clsRes.reload();
       subjRes.reload();
@@ -94,7 +94,7 @@ export function ClassPage({ classId }) {
     }
   };
 
-  if (clsRes.loading) return <LoadingBlock label="Loading class…" />;
+  if (clsRes.loading) return <LoadingBlock label="শ্রেণি লোড হচ্ছে…" />;
   if (clsRes.error) return <ErrorBlock error={clsRes.error} onRetry={clsRes.reload} />;
 
   const cls = clsRes.data;
@@ -104,33 +104,33 @@ export function ClassPage({ classId }) {
     <>
       <PageHeader
         title={cls.name}
-        subtitle={cls.description || 'No description'}
+        subtitle={cls.description || 'কোনো বিবরণ নেই'}
         icon="layers"
         actions={
           <Button icon="plus" onClick={openCreate}>
-            New subject
+            নতুন বিষয়
           </Button>
         }
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
-        <Badge tone="indigo">{num(cls.subject_count)} subjects</Badge>
-        <Badge tone="slate">Created {prettyDate(cls.created_at)}</Badge>
+        <Badge tone="indigo">{bnNum(cls.subject_count)}টি বিষয়</Badge>
+        <Badge tone="slate">তৈরি {prettyDate(cls.created_at)}</Badge>
       </div>
 
       {subjRes.loading && !subjects.length ? (
-        <LoadingBlock label="Loading subjects…" />
+        <LoadingBlock label="বিষয় লোড হচ্ছে…" />
       ) : subjRes.error ? (
         <ErrorBlock error={subjRes.error} onRetry={subjRes.reload} />
       ) : subjects.length === 0 ? (
         <Card>
           <EmptyState
             icon="book"
-            title="No subjects yet"
-            message="Create a subject to start adding chapters, question types and questions."
+            title="এখনো কোনো বিষয় নেই"
+            message="অধ্যায়, প্রশ্নের ধরন ও প্রশ্ন যোগ করতে একটি বিষয় তৈরি করুন।"
             action={
               <Button icon="plus" onClick={openCreate}>
-                New subject
+                নতুন বিষয়
               </Button>
             }
           />
@@ -158,25 +158,29 @@ export function ClassPage({ classId }) {
                 <div className="mt-2 grid w-full grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-slate-50 py-1.5">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      Questions
+                      প্রশ্ন
                     </p>
-                    <p className="text-sm font-semibold text-slate-800">{num(s.question_count)}</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {bnNum(s.question_count)}
+                    </p>
                   </div>
                   <div className="rounded-lg bg-slate-50 py-1.5">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      Chapters
+                      অধ্যায়
                     </p>
-                    <p className="text-sm font-semibold text-slate-800">{num(s.chapter_count)}</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {bnNum(s.chapter_count)}
+                    </p>
                   </div>
                   <div className="rounded-lg bg-slate-50 py-1.5">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      Types
+                      ধরন
                     </p>
-                    <p className="text-sm font-semibold text-slate-800">{num(s.type_count)}</p>
+                    <p className="text-sm font-semibold text-slate-800">{bnNum(s.type_count)}</p>
                   </div>
                 </div>
                 <span className="mt-auto inline-flex items-center gap-1 pt-2 text-xs font-medium text-indigo-600">
-                  Open <Icon name="chevronRight" className="h-3.5 w-3.5" />
+                  খুলুন <Icon name="chevronRight" className="h-3.5 w-3.5" />
                 </span>
               </button>
               <div className="flex items-center justify-end gap-1 border-t border-slate-100 px-3 py-2">
@@ -184,7 +188,7 @@ export function ClassPage({ classId }) {
                   size="icon"
                   variant="ghost"
                   onClick={() => openEdit(s)}
-                  aria-label="Edit subject"
+                  aria-label="বিষয় সম্পাদনা"
                 >
                   <Icon name="pencil" className="h-4 w-4" />
                 </Button>
@@ -192,7 +196,7 @@ export function ClassPage({ classId }) {
                   size="icon"
                   variant="ghost"
                   onClick={() => setDeleting(s)}
-                  aria-label="Delete subject"
+                  aria-label="বিষয় মুছুন"
                 >
                   <Icon name="trash" className="h-4 w-4 text-rose-600" />
                 </Button>
@@ -205,21 +209,21 @@ export function ClassPage({ classId }) {
       <Modal
         open={!!editor}
         onClose={() => !saving && setEditor(null)}
-        title={editor?.mode === 'create' ? 'New subject' : 'Edit subject'}
+        title={editor?.mode === 'create' ? 'নতুন বিষয়' : 'বিষয় সম্পাদনা'}
         size="sm"
         footer={
           <>
             <Button variant="secondary" onClick={() => setEditor(null)} disabled={saving}>
-              Cancel
+              বাতিল
             </Button>
             <Button onClick={save} loading={saving}>
-              {editor?.mode === 'create' ? 'Create' : 'Save changes'}
+              {editor?.mode === 'create' ? 'তৈরি করুন' : 'পরিবর্তন সংরক্ষণ করুন'}
             </Button>
           </>
         }
       >
         <form onSubmit={save} className="space-y-4">
-          <Field label="Name" required hint="Unique within this class">
+          <Field label="নাম" required hint="এই শ্রেণির মধ্যে অনন্য">
             <Input
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -227,11 +231,11 @@ export function ClassPage({ classId }) {
               autoFocus
             />
           </Field>
-          <Field label="Code" hint="Optional, e.g. M10">
+          <Field label="কোড" hint="ঐচ্ছিক">
             <Input
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-              placeholder="M10"
+              placeholder="গণিত-১০"
             />
           </Field>
         </form>
@@ -239,9 +243,9 @@ export function ClassPage({ classId }) {
 
       <ConfirmDialog
         open={!!deleting}
-        title={`Delete “${deleting?.name || ''}”?`}
-        message="This will also delete its chapters, question types and questions. This cannot be undone."
-        confirmLabel="Delete subject"
+        title={`“${deleting?.name || ''}” মুছে ফেলবেন?`}
+        message="এটি এই বিষয়ের অধ্যায়, প্রশ্নের ধরন ও প্রশ্নও মুছে ফেলবে। এটি ফিরিয়ে আনা যাবে না।"
+        confirmLabel="বিষয় মুছুন"
         loading={removing}
         onCancel={() => !removing && setDeleting(null)}
         onConfirm={remove}

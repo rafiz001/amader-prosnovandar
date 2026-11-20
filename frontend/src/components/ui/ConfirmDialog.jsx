@@ -4,10 +4,10 @@ import { Modal } from './Modal.jsx';
 
 export function ConfirmDialog({
   open,
-  title = 'Are you sure?',
+  title = 'আপনি কি নিশ্চিত?',
   message,
-  confirmLabel = 'Delete',
-  cancelLabel = 'Cancel',
+  confirmLabel = 'মুছুন',
+  cancelLabel = 'বাতিল',
   tone = 'danger',
   loading = false,
   onConfirm,

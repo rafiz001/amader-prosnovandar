@@ -3,7 +3,7 @@ import { useNav } from '../context/NavContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useResource } from '../hooks/useResource.js';
 import { API } from '../lib/api.js';
-import { cn, num } from '../lib/utils.js';
+import { bnNum, cn } from '../lib/utils.js';
 import { Icon } from '../components/Icon.jsx';
 import { Button, ErrorBlock, LoadingBlock, PageHeader } from '../components/ui/index.js';
 import { ChaptersTab } from '../components/subject/ChaptersTab.jsx';
@@ -25,7 +25,7 @@ export function SubjectPage({ subjectId, initialTab = 'questions' }) {
 
   useEffect(() => {
     if (error && error.status === 404) {
-      toast.error('Subject not found');
+      toast.error('বিষয় পাওয়া যায়নি');
       nav.back();
     }
   }, [error, nav, toast]);
@@ -34,13 +34,13 @@ export function SubjectPage({ subjectId, initialTab = 'questions' }) {
     if (subject?.name) nav.setLabel(subject.name);
   }, [subject, nav]);
 
-  if (loading) return <LoadingBlock label="Loading subject…" />;
+  if (loading) return <LoadingBlock label="বিষয় লোড হচ্ছে…" />;
   if (error) return <ErrorBlock error={error} onRetry={reload} />;
 
   const tabs = [
-    { key: 'questions', label: 'Questions', icon: 'list', count: subject.question_count },
-    { key: 'chapters', label: 'Chapters', icon: 'tag', count: subject.chapter_count },
-    { key: 'types', label: 'Question types', icon: 'grid', count: subject.type_count },
+    { key: 'questions', label: 'প্রশ্ন', icon: 'list', count: subject.question_count },
+    { key: 'chapters', label: 'অধ্যায়', icon: 'tag', count: subject.chapter_count },
+    { key: 'types', label: 'প্রশ্নের ধরন', icon: 'grid', count: subject.type_count },
   ];
 
   const onQuestionSaved = () => {
@@ -53,12 +53,12 @@ export function SubjectPage({ subjectId, initialTab = 'questions' }) {
     <>
       <PageHeader
         title={subject.name}
-        subtitle={subject.code ? `Subject code ${subject.code}` : 'Subject'}
+        subtitle={subject.code ? `বিষয় কোড ${subject.code}` : 'বিষয়'}
         icon="book"
         actions={
           tab === 'questions' && (
             <Button icon="plus" onClick={() => setQEditor({})}>
-              New question
+              নতুন প্রশ্ন
             </Button>
           )
         }
@@ -85,7 +85,7 @@ export function SubjectPage({ subjectId, initialTab = 'questions' }) {
                     active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
                   )}
                 >
-                  {num(t.count)}
+                  {bnNum(t.count)}
                 </span>
               )}
             </button>

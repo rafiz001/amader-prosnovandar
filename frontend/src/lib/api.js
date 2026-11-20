@@ -1,3 +1,5 @@
+import { bnNum } from './utils.js';
+
 async function http(path, { method = 'GET', body, headers, isForm } = {}) {
   const opts = { method, headers: { ...(headers || {}) } };
 
@@ -23,7 +25,7 @@ async function http(path, { method = 'GET', body, headers, isForm } = {}) {
     const message =
       (payload && payload.error && payload.error.message) ||
       (typeof payload === 'string' && payload) ||
-      `Request failed (${res.status})`;
+      `অনুরোধ ব্যর্থ হয়েছে (${bnNum(res.status)})`;
     const err = new Error(message);
     err.status = res.status;
     err.payload = payload;

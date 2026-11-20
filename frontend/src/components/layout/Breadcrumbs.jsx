@@ -3,7 +3,7 @@ import { Icon } from '../Icon.jsx';
 export function Breadcrumbs({ stack, onGoto }) {
   if (stack.length === 0) return null;
   return (
-    <nav className="flex min-w-0 items-center gap-1 text-sm" aria-label="Breadcrumb">
+    <nav className="flex min-w-0 items-center gap-1 text-sm" aria-label="পথনির্দেশ">
       {stack.map((crumb, index) => {
         const last = index === stack.length - 1;
         return (

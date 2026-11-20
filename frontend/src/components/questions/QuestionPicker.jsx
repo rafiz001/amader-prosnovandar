@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useResource } from '../../hooks/useResource.js';
 import { API } from '../../lib/api.js';
-import { DIFFICULTIES, KINDS } from '../../lib/constants.js';
-import { num } from '../../lib/utils.js';
+import { DIFFICULTIES, KIND_LABEL, KINDS } from '../../lib/constants.js';
+import { bnNum } from '../../lib/utils.js';
 import { Icon } from '../Icon.jsx';
 import {
   Badge,
@@ -81,7 +81,7 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
   const currentPage = Math.floor(page.offset / page.limit) + 1;
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const selectedIds = new Set(selected.map((q) => q.id));
-  const totalMarks = selected.reduce((sum, q) => sum + num(q.marks), 0);
+  const totalMarks = selected.reduce((sum, q) => sum + Number(q.marks || 0), 0);
 
   const updateFilter = (key) => (e) => {
     const value = e.target.value;
@@ -100,14 +100,14 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
     return (
       <Card>
         <CardHeader
-          title="Pick questions"
-          subtitle="Click a question to add it to the paper"
+          title="প্রশ্ন বাছাই করুন"
+          subtitle="প্রশ্নপত্রে যোগ করতে একটি প্রশ্নে ক্লিক করুন"
           icon="list"
         />
         <EmptyState
           icon="book"
-          title="Choose a subject first"
-          message="Pick a class and a subject above, then browse its questions and select the ones you want."
+          title="প্রথমে একটি বিষয় বাছুন"
+          message="উপরে একটি শ্রেণি ও বিষয় বাছুন, তারপর প্রশ্ন দেখে পছন্দেরগুলো নির্বাচন করুন।"
         />
       </Card>
     );
@@ -118,11 +118,11 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
   return (
     <Card>
       <CardHeader
-        title="Pick questions"
+        title="প্রশ্ন বাছাই করুন"
         subtitle={
           showInitialLoading
-            ? 'Loading…'
-            : `${total} question${total === 1 ? '' : 's'} match your filters`
+            ? 'লোড হচ্ছে…'
+            : `মোট ${bnNum(total)}টি প্রশ্ন আপনার ছাঁকনির সাথে মেলে`
         }
         icon="list"
       />
@@ -134,15 +134,15 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
           </span>
           <div>
             <p className="text-sm font-semibold text-indigo-900">
-              {selected.length} question{selected.length === 1 ? '' : 's'} selected
+              {bnNum(selected.length)}টি প্রশ্ন নির্বাচিত
             </p>
             <p className="text-xs text-indigo-600">
-              Click a question to select or deselect it
+              নির্বাচন বা বাতিল করতে প্রশ্নে ক্লিক করুন
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {selected.length > 0 && <Badge tone="violet">{num(totalMarks)} marks</Badge>}
+          {selected.length > 0 && <Badge tone="violet">{bnNum(totalMarks)} নম্বর</Badge>}
           <Button
             type="button"
             size="sm"
@@ -151,7 +151,7 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
             onClick={onClear}
             disabled={selected.length === 0}
           >
-            Clear
+            মুছুন
           </Button>
         </div>
       </div>
@@ -165,13 +165,13 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
           <Input
             value={filters.q}
             onChange={updateFilter('q')}
-            placeholder="Search text or math…"
+            placeholder="লেখা বা গণিত খুঁজুন…"
             className="pl-9"
           />
         </div>
         <Select value={filters.chapter_id} onChange={updateFilter('chapter_id')}>
-          <option value="">All chapters</option>
-          <option value="none">No chapter</option>
+          <option value="">সব অধ্যায়</option>
+          <option value="none">কোনো অধ্যায় নেই</option>
           {(chapters || []).map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -179,15 +179,15 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
           ))}
         </Select>
         <Select value={filters.type_id} onChange={updateFilter('type_id')}>
-          <option value="">All types</option>
+          <option value="">সব ধরন</option>
           {(types || []).map((t) => (
             <option key={t.id} value={t.id}>
-              {t.name} ({t.kind})
+              {t.name} ({KIND_LABEL[t.kind] || t.kind})
             </option>
           ))}
         </Select>
         <Select value={filters.kind} onChange={updateFilter('kind')}>
-          <option value="">All kinds</option>
+          <option value="">সব প্রকার</option>
           {KINDS.map((k) => (
             <option key={k.value} value={k.value}>
               {k.label}
@@ -195,7 +195,7 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
           ))}
         </Select>
         <Select value={filters.difficulty} onChange={updateFilter('difficulty')}>
-          <option value="">Any difficulty</option>
+          <option value="">যেকোনো কঠিনতা</option>
           {DIFFICULTIES.map((d) => (
             <option key={d.value} value={d.value}>
               {d.label}
@@ -207,29 +207,29 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
             <Input
               value={filters.lang}
               onChange={updateFilter('lang')}
-              placeholder="Language code (bn, ar…)"
+              placeholder="ভাষা কোড"
             />
           </div>
           {activeFilterCount > 0 && (
             <Button type="button" size="sm" variant="ghost" icon="x" onClick={clearFilters}>
-              Clear filters
+              ছাঁকনি মুছুন
             </Button>
           )}
         </div>
       </div>
 
       {showInitialLoading ? (
-        <LoadingBlock label="Loading questions…" />
+        <LoadingBlock label="প্রশ্ন লোড হচ্ছে…" />
       ) : error ? (
         <ErrorBlock error={error} onRetry={reload} />
       ) : items.length === 0 ? (
         <EmptyState
           icon="list"
-          title={activeFilterCount > 0 ? 'No matching questions' : 'No questions in this subject'}
+          title={activeFilterCount > 0 ? 'মিলে যাওয়া প্রশ্ন নেই' : 'এই বিষয়ে কোনো প্রশ্ন নেই'}
           message={
             activeFilterCount > 0
-              ? 'Try clearing some filters to see more questions.'
-              : 'Add questions to this subject first, then come back here to pick them.'
+              ? 'আরও প্রশ্ন দেখতে কিছু ছাঁকনি মুছে দেখুন।'
+              : 'আগে এই বিষয়ে প্রশ্ন যোগ করুন, তারপর এখানে ফিরে বাছাই করুন।'
           }
         />
       ) : (
@@ -248,11 +248,11 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
       {total > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-3 text-sm text-slate-500 sm:px-5">
           <span>
-            Showing{' '}
+            দেখানো হচ্ছে{' '}
             <span className="font-medium text-slate-700">
-              {start}–{end}
+              {bnNum(start)}–{bnNum(end)}
             </span>{' '}
-            of <span className="font-medium text-slate-700">{total}</span>
+            / মোট <span className="font-medium text-slate-700">{bnNum(total)}</span>
           </span>
           <div className="flex flex-wrap items-center gap-1.5">
             <Select
@@ -261,11 +261,11 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
                 setPage({ limit: Number(e.target.value), offset: 0 })
               }
               className="h-8 w-auto py-0 text-xs"
-              aria-label="Questions per page"
+              aria-label="প্রতি পৃষ্ঠায় প্রশ্ন"
             >
               {PAGE_SIZES.map((size) => (
                 <option key={size} value={size}>
-                  {size} / page
+                  {bnNum(size)} / পৃষ্ঠা
                 </option>
               ))}
             </Select>
@@ -277,7 +277,7 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
               disabled={page.offset === 0}
               onClick={() => gotoPage(currentPage - 1)}
             >
-              Prev
+              আগের
             </Button>
             {pageWindow(currentPage, totalPages).map((p) =>
               typeof p === 'number' ? (
@@ -289,7 +289,7 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
                   onClick={() => gotoPage(p)}
                   aria-current={p === currentPage ? 'page' : undefined}
                 >
-                  {p}
+                  {bnNum(p)}
                 </Button>
               ) : (
                 <span key={p} className="px-1 text-slate-400">
@@ -305,7 +305,7 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
               disabled={page.offset + page.limit >= total}
               onClick={() => gotoPage(currentPage + 1)}
             >
-              Next
+              পরের
             </Button>
           </div>
         </div>
