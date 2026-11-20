@@ -30,6 +30,10 @@ export function SubjectPage({ subjectId, initialTab = 'questions' }) {
     }
   }, [error, nav, toast]);
 
+  useEffect(() => {
+    if (subject?.name) nav.setLabel(subject.name);
+  }, [subject, nav]);
+
   if (loading) return <LoadingBlock label="Loading subject…" />;
   if (error) return <ErrorBlock error={error} onRetry={reload} />;
 

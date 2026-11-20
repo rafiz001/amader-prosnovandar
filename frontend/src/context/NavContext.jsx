@@ -5,6 +5,7 @@ export const NavCtx = createContext({
   goto: () => {},
   back: () => {},
   reset: () => {},
+  setLabel: () => {},
 });
 
 export const useNav = () => useContext(NavCtx);

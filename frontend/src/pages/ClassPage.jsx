@@ -39,6 +39,10 @@ export function ClassPage({ classId }) {
     }
   }, [clsRes.error, subjRes.error, nav, toast]);
 
+  useEffect(() => {
+    if (clsRes.data?.name) nav.setLabel(clsRes.data.name);
+  }, [clsRes.data, nav]);
+
   const openCreate = () => {
     setForm({ name: '', code: '' });
     setEditor({ mode: 'create' });

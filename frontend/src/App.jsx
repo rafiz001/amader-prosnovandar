@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavCtx } from './context/NavContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
 import { Sidebar } from './components/layout/Sidebar.jsx';
 import { Topbar } from './components/layout/Topbar.jsx';
 import { EmptyState } from './components/ui/index.js';
+import { buildCrumbs, parseHash, pathFor } from './lib/router.js';
 import { InstitutePage } from './pages/InstitutePage.jsx';
 import { ClassesPage } from './pages/ClassesPage.jsx';
 import { ClassPage } from './pages/ClassPage.jsx';
@@ -12,13 +13,15 @@ import { GeneratePage } from './pages/GeneratePage.jsx';
 import { PapersPage } from './pages/PapersPage.jsx';
 
 /**
- * Route shapes:
- *   { name: 'institute' }
- *   { name: 'classes' }
- *   { name: 'class',   id, label }
- *   { name: 'subject', id, label, tab }
- *   { name: 'generate' }
- *   { name: 'papers' }
+ * Hash route shapes:
+ *   #/institute
+ *   #/classes
+ *   #/classes/:id
+ *   #/classes/:id/subjects/:id
+ *   #/classes/:id/subjects/:id/:tab
+ *   #/subjects/:id
+ *   #/generate
+ *   #/papers
  */
 function renderRoute(route) {
   switch (route.name) {
@@ -35,33 +38,48 @@ function renderRoute(route) {
     case 'papers':
       return <PapersPage />;
     default:
-      return <EmptyState icon="alert" title="Page not found" message={`Unknown route: ${route.name}`} />;
+      return <EmptyState icon="alert" title="Page not found" message={`Unknown route: ${route.path}`} />;
   }
 }
 
 export default function App() {
-  const [stack, setStack] = useState([{ name: 'institute', label: 'Institute' }]);
+  const [route, setRoute] = useState(() => parseHash());
+  const [labels, setLabels] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const nav = useMemo(
-    () => ({
-      reset: (item) => {
-        setStack([item]);
-        setSidebarOpen(false);
-      },
-      push: (item) => {
-        setStack((s) => [...s, item]);
-        setSidebarOpen(false);
-      },
-      goto: (index) => setStack((s) => s.slice(0, index + 1)),
-      back: () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)),
-    }),
-    []
-  );
+  useEffect(() => {
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', '#/institute');
+    }
+    const onHashChange = () => setRoute(parseHash());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
-  const current = stack[stack.length - 1];
+  const crumbs = useMemo(() => buildCrumbs(route, labels), [route, labels]);
+
+  const nav = useMemo(() => {
+    const go = (path) => {
+      if (window.location.hash !== `#${path}`) window.location.hash = path;
+    };
+    return {
+      reset: (item) => go(pathFor(item, route)),
+      push: (item) => go(pathFor(item, route)),
+      goto: (index) => {
+        const target = crumbs[index];
+        if (target) go(target.path);
+      },
+      back: () => {
+        if (crumbs.length > 1) go(crumbs[crumbs.length - 2].path);
+      },
+      setLabel: (label) =>
+        setLabels((prev) => (prev[route.path] === label ? prev : { ...prev, [route.path]: label })),
+    };
+  }, [route, crumbs]);
+
+  const current = route;
   const topKey =
-    stack[0]?.name === 'class' || stack[0]?.name === 'subject' ? 'classes' : stack[0]?.name;
+    current.name === 'class' || current.name === 'subject' ? 'classes' : current.name;
 
   const handleNavigate = (item) => nav.reset({ name: item.key, label: item.label });
 
@@ -78,10 +96,10 @@ export default function App() {
 
           <div className="flex min-w-0 flex-1 flex-col">
             <Topbar
-              stack={stack}
+              stack={crumbs}
               onGoto={nav.goto}
               onOpenSidebar={() => setSidebarOpen(true)}
-              canGoBack={stack.length > 1}
+              canGoBack={crumbs.length > 1}
               onBack={nav.back}
             />
 
