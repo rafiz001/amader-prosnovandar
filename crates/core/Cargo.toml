@@ -1,0 +1,28 @@
+[package]
+name = "questionbank-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Shared question bank logic for the Tauri app and the WASM web build"
+
+[lib]
+name = "questionbank_core"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+base64 = "0.22"
+unicode-normalization = "0.1"
+infer = "0.16"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+rusqlite = { version = "0.43", features = ["bundled", "serialize"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+rusqlite = { version = "0.43", features = ["serialize"] }
+sqlite-wasm-rs = { version = "0.6", features = ["wasm-bindgen"] }
+js-sys = "0.3"
+
+[dev-dependencies]
+base64 = "0.22"

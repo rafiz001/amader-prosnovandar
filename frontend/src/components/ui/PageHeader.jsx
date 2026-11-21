@@ -2,7 +2,7 @@ import { Icon } from '../Icon.jsx';
 
 export function PageHeader({ title, subtitle, icon, actions }) {
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4 print:hidden">
       <div className="flex min-w-0 items-start gap-3">
         {icon && (
           <span className="mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white shadow-sm">

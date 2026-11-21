@@ -86,7 +86,7 @@ export default function App() {
   return (
     <ToastProvider>
       <NavCtx.Provider value={nav}>
-        <div className="flex min-h-screen bg-slate-50">
+        <div className="flex min-h-screen bg-slate-50 print:bg-white">
           <Sidebar
             activeKey={topKey}
             onNavigate={handleNavigate}
@@ -103,20 +103,16 @@ export default function App() {
               onBack={nav.back}
             />
 
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <main
+              className={`mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 print:max-w-none print:p-0 ${
+                current.name === 'generate' ? 'max-w-[1600px]' : 'max-w-6xl'
+              }`}
+            >
               {renderRoute(current)}
             </main>
 
-            <footer className="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-400 sm:px-6">
-              প্রশ্নব্যাংক এপিআই সংস্করণ ২.০ · ইউটিএফ-৮ / এনএফসি ·{' '}
-              <a
-                className="underline decoration-dotted hover:text-slate-600"
-                href="/api/openapi.json"
-                target="_blank"
-                rel="noreferrer"
-              >
-                ওপেনএপিআই ৩.০
-              </a>
+            <footer className="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-400 sm:px-6 print:hidden">
+              প্রশ্নব্যাংক সংস্করণ ২.০ · ইউটিএফ-৮ / এনএফসি
             </footer>
           </div>
         </div>

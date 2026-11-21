@@ -2,16 +2,31 @@ import { useState } from 'react';
 import { useToast } from '../context/ToastContext.jsx';
 import { useResource } from '../hooks/useResource.js';
 import { API } from '../lib/api.js';
+import { DEFAULT_LAYOUT } from '../lib/paperLayout.js';
 import { bnNum } from '../lib/utils.js';
 import { Button, Card, CardHeader, Field, Input, PageHeader, Select } from '../components/ui/index.js';
+import { QuestionFilterPanel } from '../components/questions/QuestionFilterPanel.jsx';
 import { QuestionPicker } from '../components/questions/QuestionPicker.jsx';
+import { PaperLayoutPanel } from '../components/paper/PaperLayoutPanel.jsx';
 import { PaperView } from '../components/paper/PaperView.jsx';
+
+const EMPTY_FILTERS = {
+  q: '',
+  kind: '',
+  difficulty: '',
+  lang: '',
+  chapter_id: '',
+  type_id: '',
+};
 
 export function GeneratePage() {
   const toast = useToast();
   const [result, setResult] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [selected, setSelected] = useState([]);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [page, setPage] = useState({ limit: 20, offset: 0 });
+  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
 
   const { data: classes } = useResource(() => API.classes.list(), []);
 
@@ -34,16 +49,30 @@ export function GeneratePage() {
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e?.target ? e.target.value : e }));
 
+  const resetFilters = () => {
+    setFilters(EMPTY_FILTERS);
+    setPage((p) => ({ ...p, offset: 0 }));
+  };
+
+  const updateFilter = (key, value) => {
+    setFilters((f) => ({ ...f, [key]: value }));
+    setPage((p) => ({ ...p, offset: 0 }));
+  };
+
+  const updateLayout = (patch) => setLayout((l) => ({ ...l, ...patch }));
+
   const changeClass = (e) => {
     const classId = e.target.value;
     setSelected([]);
     setForm((f) => ({ ...f, class_id: classId, subject_id: '' }));
+    resetFilters();
   };
 
   const changeSubject = (e) => {
     const subjectId = e.target.value;
     setSelected([]);
     setForm((f) => ({ ...f, subject_id: subjectId }));
+    resetFilters();
   };
 
   const toggleQuestion = (q) =>
@@ -52,6 +81,13 @@ export function GeneratePage() {
         ? list.filter((item) => item.id !== q.id)
         : [...list, q]
     );
+
+  const selectAllQuestions = (items) =>
+    setSelected((list) => {
+      const byId = new Map(list.map((q) => [q.id, q]));
+      items.forEach((q) => byId.set(q.id, q));
+      return [...byId.values()];
+    });
 
   const totalMarks = selected.reduce((sum, q) => sum + Number(q.marks || 0), 0);
 
@@ -104,7 +140,19 @@ export function GeneratePage() {
             </Button>
           }
         />
-        <PaperView paper={result} onBack={() => setResult(null)} backLabel="ফর্মে ফিরে যান" />
+        <div className="paper-print-block grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="min-w-0">
+            <PaperView
+              paper={result}
+              layout={layout}
+              onBack={() => setResult(null)}
+              backLabel="ফর্মে ফিরে যান"
+            />
+          </div>
+          <aside className="sticky top-20 z-10 self-start max-h-[calc(100vh-6rem)] overflow-y-auto print:hidden">
+            <PaperLayoutPanel layout={layout} onChange={updateLayout} />
+          </aside>
+        </div>
       </>
     );
   }
@@ -151,62 +199,84 @@ export function GeneratePage() {
           </div>
         </Card>
 
-        <QuestionPicker
-          key={form.subject_id || 'none'}
-          subjectId={form.subject_id}
-          selected={selected}
-          onToggle={toggleQuestion}
-          onClear={() => setSelected([])}
-        />
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="min-w-0 space-y-4">
+            <QuestionPicker
+              subjectId={form.subject_id}
+              selected={selected}
+              onToggle={toggleQuestion}
+              onClear={() => setSelected([])}
+              onSelectAll={selectAllQuestions}
+              filters={filters}
+              page={page}
+              onPageChange={setPage}
+            />
 
-        <Card>
-          <CardHeader title="ফলাফল" icon="file" />
-          <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
-            {[
-              ['shuffle_questions', 'প্রশ্নের ক্রম এলোমেলো করুন'],
-              ['shuffle_options', 'বহুনির্বাচনি বিকল্পের ক্রম এলোমেলো করুন (সঠিক উত্তর হালনাগাদ হবে)'],
-              ['include_answers', 'উত্তর ও উত্তরমালা অন্তর্ভুক্ত করুন'],
-              ['save', 'প্রশ্নপত্রটি “প্রশ্নপত্রসমূহ”-এ সংরক্ষণ করুন'],
-            ].map(([key, label]) => (
-              <label
-                key={key}
-                className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <input
-                  type="checkbox"
-                  checked={!!form[key]}
-                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.checked }))}
-                  className="mt-0.5 h-4 w-4 accent-indigo-600"
-                />
-                {label}
-              </label>
-            ))}
-            <Field label="সময়কাল (মিনিট)" className="sm:col-span-2">
-              <Input
-                type="number"
-                min="1"
-                value={form.duration_minutes}
-                onChange={set('duration_minutes')}
-                placeholder="৯০"
-              />
-            </Field>
+            <Card>
+              <CardHeader title="ফলাফল" icon="file" />
+              <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
+                {[
+                  ['shuffle_questions', 'প্রশ্নের ক্রম এলোমেলো করুন'],
+                  ['shuffle_options', 'বহুনির্বাচনি বিকল্পের ক্রম এলোমেলো করুন (সঠিক উত্তর হালনাগাদ হবে)'],
+                  ['include_answers', 'উত্তর ও উত্তরমালা অন্তর্ভুক্ত করুন'],
+                  ['save', 'প্রশ্নপত্রটি “প্রশ্নপত্রসমূহ”-এ সংরক্ষণ করুন'],
+                ].map(([key, label]) => (
+                  <label
+                    key={key}
+                    className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!form[key]}
+                      onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.checked }))}
+                      className="mt-0.5 h-4 w-4 accent-indigo-600"
+                    />
+                    {label}
+                  </label>
+                ))}
+                <Field label="সময়কাল (মিনিট)" className="sm:col-span-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    value={form.duration_minutes}
+                    onChange={set('duration_minutes')}
+                    placeholder="৯০"
+                  />
+                </Field>
+              </div>
+            </Card>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-slate-500">
+                <span className="font-semibold text-slate-700">{bnNum(selected.length)}</span>টি
+                প্রশ্ন নির্বাচিত
+                {selected.length > 0 && (
+                  <>
+                    {' '}
+                    · <span className="font-semibold text-slate-700">{bnNum(totalMarks)}</span>{' '}
+                    নম্বর
+                  </>
+                )}
+              </p>
+              <Button type="submit" icon="sparkles" loading={generating}>
+                প্রশ্নপত্র তৈরি করুন
+              </Button>
+            </div>
           </div>
-        </Card>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-slate-500">
-            <span className="font-semibold text-slate-700">{bnNum(selected.length)}</span>টি প্রশ্ন
-            নির্বাচিত
-            {selected.length > 0 && (
-              <>
-                {' '}
-                · <span className="font-semibold text-slate-700">{bnNum(totalMarks)}</span> নম্বর
-              </>
-            )}
-          </p>
-          <Button type="submit" icon="sparkles" loading={generating}>
-            প্রশ্নপত্র তৈরি করুন
-          </Button>
+          <aside
+            className="order-first self-start print:hidden xl:order-last xl:sticky xl:top-20"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.preventDefault();
+            }}
+          >
+            <QuestionFilterPanel
+              subjectId={form.subject_id}
+              filters={filters}
+              onChange={updateFilter}
+              onReset={resetFilters}
+            />
+          </aside>
         </div>
       </form>
     </>

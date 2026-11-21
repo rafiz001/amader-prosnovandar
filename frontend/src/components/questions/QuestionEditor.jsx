@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useResource } from '../../hooks/useResource.js';
 import { API } from '../../lib/api.js';
-import { DIFFICULTIES, KIND_LABEL } from '../../lib/constants.js';
+import { DIFFICULTIES, KIND_LABEL, LANG_LABEL } from '../../lib/constants.js';
 import { cn, optionLetter } from '../../lib/utils.js';
 import { Icon } from '../Icon.jsx';
 import { MarkdownEditor } from '../markdown/MarkdownEditor.jsx';
@@ -452,12 +452,20 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                 ))}
               </Select>
             </Field>
-            <Field label="ভাষা" hint="আরবি, ফারসি, উর্দু ও হিব্রুর জন্য ডান-থেকে-বাম">
-              <Input
+            <Field label="ভাষা">
+              <Select
                 value={form.lang}
                 onChange={(e) => setForm((f) => ({ ...f, lang: e.target.value }))}
-                placeholder="ভাষা কোড"
-              />
+              >
+                {form.lang && !LANG_LABEL[form.lang] && (
+                  <option value={form.lang}>{form.lang}</option>
+                )}
+                {Object.entries(LANG_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
             </Field>
           </div>
         </form>

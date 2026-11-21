@@ -1,10 +1,16 @@
+import { cn } from '../../lib/utils.js';
 import { Icon } from '../Icon.jsx';
 
 export function Brand({ compact = false }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm">
-        <Icon name="book" className="h-5 w-5" />
+      <span
+        className={cn(
+          'grid place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm',
+          compact ? 'h-8 w-8' : 'h-9 w-9'
+        )}
+      >
+        <Icon name="book" className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
       </span>
       {!compact && (
         <div className="leading-tight">

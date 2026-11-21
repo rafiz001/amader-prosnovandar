@@ -282,8 +282,38 @@ input[type='number'] {
   cursor: progress;
 }
 
+.paper-sheet {
+  box-sizing: border-box;
+}
+
 @media print {
   body {
     background: #fff;
+  }
+
+  .paper-sheet {
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .paper-sheet * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .paper-page {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .paper-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .paper-print-block {
+    display: block !important;
   }
 }

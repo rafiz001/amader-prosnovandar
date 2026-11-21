@@ -1,31 +1,12 @@
 /data/
 /bin/
 *.sqlite*
-# ---------- Go ----------
-# Compiled binaries
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
 
-# Go build/coverage output
-*.out
-/bin/
-/build/
-/cmd/**/dist/
-
-# Go workspace & module files (commit go.mod/go.sum; go.work is optional)
-go.work
-go.work.sum
-
-# Dependency directory
-# `go mod vendor` output — uncomment to ignore (commit it if you rely on vendoring)
-# /vendor/
-
-# Air / live-reload temp dir
-/tmp/
+# ---------- Rust / Tauri ----------
+/target/
+src-tauri/target/
+src-tauri/gen/
+frontend/src/wasm/
 
 # ---------- Node / React ----------
 node_modules/

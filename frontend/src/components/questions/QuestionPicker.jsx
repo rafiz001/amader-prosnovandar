@@ -1,7 +1,7 @@
 import { useState } from 'react';
+import { useToast } from '../../context/ToastContext.jsx';
 import { useResource } from '../../hooks/useResource.js';
 import { API } from '../../lib/api.js';
-import { DIFFICULTIES, KIND_LABEL, KINDS } from '../../lib/constants.js';
 import { bnNum } from '../../lib/utils.js';
 import { Icon } from '../Icon.jsx';
 import {
@@ -11,20 +11,10 @@ import {
   CardHeader,
   EmptyState,
   ErrorBlock,
-  Input,
   LoadingBlock,
   Select,
 } from '../ui/index.js';
 import { QuestionPickerRow } from './QuestionPickerRow.jsx';
-
-const EMPTY_FILTERS = {
-  q: '',
-  kind: '',
-  difficulty: '',
-  lang: '',
-  chapter_id: '',
-  type_id: '',
-};
 
 const PAGE_SIZES = [10, 20, 50, 100];
 
@@ -42,9 +32,18 @@ function pageWindow(current, totalPages) {
   return pages;
 }
 
-export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [page, setPage] = useState({ limit: 20, offset: 0 });
+export function QuestionPicker({
+  subjectId,
+  selected,
+  onToggle,
+  onClear,
+  onSelectAll,
+  filters,
+  page,
+  onPageChange,
+}) {
+  const toast = useToast();
+  const [selectingAll, setSelectingAll] = useState(false);
 
   const { data, loading, error, reload } = useResource(
     () => API.questions.list(subjectId, { ...filters, ...page }),
@@ -62,17 +61,6 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
     { skip: !subjectId }
   );
 
-  const { data: chapters } = useResource(
-    () => API.chapters.list(subjectId),
-    [subjectId],
-    { skip: !subjectId }
-  );
-  const { data: types } = useResource(
-    () => API.types.list(subjectId),
-    [subjectId],
-    { skip: !subjectId }
-  );
-
   const total = data?.total ?? 0;
   const items = data?.items ?? [];
   const start = total === 0 ? 0 : page.offset + 1;
@@ -83,18 +71,31 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
   const selectedIds = new Set(selected.map((q) => q.id));
   const totalMarks = selected.reduce((sum, q) => sum + Number(q.marks || 0), 0);
 
-  const updateFilter = (key) => (e) => {
-    const value = e.target.value;
-    setFilters((f) => ({ ...f, [key]: value }));
-    setPage((p) => ({ ...p, offset: 0 }));
-  };
+  const gotoPage = (n) => onPageChange({ ...page, offset: (n - 1) * page.limit });
 
-  const clearFilters = () => {
-    setFilters(EMPTY_FILTERS);
-    setPage((p) => ({ ...p, offset: 0 }));
+  const selectAll = async () => {
+    if (!subjectId || selectingAll) return;
+    setSelectingAll(true);
+    try {
+      const limit = 500;
+      let offset = 0;
+      let allTotal = 0;
+      const all = [];
+      do {
+        const res = await API.questions.list(subjectId, { ...filters, limit, offset });
+        const batch = res?.items || [];
+        allTotal = res?.total ?? 0;
+        all.push(...batch);
+        if (!batch.length) break;
+        offset += batch.length;
+      } while (offset < allTotal);
+      onSelectAll?.(all);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSelectingAll(false);
+    }
   };
-
-  const gotoPage = (n) => setPage((p) => ({ ...p, offset: (n - 1) * p.limit }));
 
   if (!subjectId) {
     return (
@@ -141,8 +142,19 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {selected.length > 0 && <Badge tone="violet">{bnNum(totalMarks)} নম্বর</Badge>}
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            icon="check"
+            onClick={selectAll}
+            loading={selectingAll}
+            disabled={total === 0}
+          >
+            সব নির্বাচন
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -156,68 +168,6 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
         </div>
       </div>
 
-      <div className="grid gap-2 border-b border-slate-200 bg-slate-50/60 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="relative sm:col-span-2">
-          <Icon
-            name="search"
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-          />
-          <Input
-            value={filters.q}
-            onChange={updateFilter('q')}
-            placeholder="লেখা বা গণিত খুঁজুন…"
-            className="pl-9"
-          />
-        </div>
-        <Select value={filters.chapter_id} onChange={updateFilter('chapter_id')}>
-          <option value="">সব অধ্যায়</option>
-          <option value="none">কোনো অধ্যায় নেই</option>
-          {(chapters || []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-        <Select value={filters.type_id} onChange={updateFilter('type_id')}>
-          <option value="">সব ধরন</option>
-          {(types || []).map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} ({KIND_LABEL[t.kind] || t.kind})
-            </option>
-          ))}
-        </Select>
-        <Select value={filters.kind} onChange={updateFilter('kind')}>
-          <option value="">সব প্রকার</option>
-          {KINDS.map((k) => (
-            <option key={k.value} value={k.value}>
-              {k.label}
-            </option>
-          ))}
-        </Select>
-        <Select value={filters.difficulty} onChange={updateFilter('difficulty')}>
-          <option value="">যেকোনো কঠিনতা</option>
-          {DIFFICULTIES.map((d) => (
-            <option key={d.value} value={d.value}>
-              {d.label}
-            </option>
-          ))}
-        </Select>
-        <div className="flex items-center gap-2 sm:col-span-2">
-          <div className="flex-1">
-            <Input
-              value={filters.lang}
-              onChange={updateFilter('lang')}
-              placeholder="ভাষা কোড"
-            />
-          </div>
-          {activeFilterCount > 0 && (
-            <Button type="button" size="sm" variant="ghost" icon="x" onClick={clearFilters}>
-              ছাঁকনি মুছুন
-            </Button>
-          )}
-        </div>
-      </div>
-
       {showInitialLoading ? (
         <LoadingBlock label="প্রশ্ন লোড হচ্ছে…" />
       ) : error ? (
@@ -228,7 +178,7 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
           title={activeFilterCount > 0 ? 'মিলে যাওয়া প্রশ্ন নেই' : 'এই বিষয়ে কোনো প্রশ্ন নেই'}
           message={
             activeFilterCount > 0
-              ? 'আরও প্রশ্ন দেখতে কিছু ছাঁকনি মুছে দেখুন।'
+              ? 'আরও প্রশ্ন দেখতে ছাঁকনি মুছে দেখুন।'
               : 'আগে এই বিষয়ে প্রশ্ন যোগ করুন, তারপর এখানে ফিরে বাছাই করুন।'
           }
         />
@@ -257,9 +207,7 @@ export function QuestionPicker({ subjectId, selected, onToggle, onClear }) {
           <div className="flex flex-wrap items-center gap-1.5">
             <Select
               value={page.limit}
-              onChange={(e) =>
-                setPage({ limit: Number(e.target.value), offset: 0 })
-              }
+              onChange={(e) => onPageChange({ limit: Number(e.target.value), offset: 0 })}
               className="h-8 w-auto py-0 text-xs"
               aria-label="প্রতি পৃষ্ঠায় প্রশ্ন"
             >

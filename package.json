@@ -1,0 +1,17 @@
+{
+  "name": "question-bank",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "tauri": "node scripts/with-cargo.mjs tauri",
+    "dev": "node scripts/with-cargo.mjs tauri dev",
+    "build": "node scripts/with-cargo.mjs tauri build",
+    "web:dev": "npm --prefix frontend run dev",
+    "web:build": "npm --prefix frontend run build",
+    "test": "node scripts/with-cargo.mjs cargo test -p questionbank-core"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.6"
+  }
+}

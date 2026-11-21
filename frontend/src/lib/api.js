@@ -1,113 +1,165 @@
 import { bnNum } from './utils.js';
 
-async function http(path, { method = 'GET', body, headers, isForm } = {}) {
-  const opts = { method, headers: { ...(headers || {}) } };
+/**
+ * One API surface for both shells:
+ *  - Tauri (desktop/mobile): calls the `api_call` Rust command
+ *  - Browser: loads the Rust WebAssembly module and calls its `call` export
+ * There is no HTTP server and no REST API.
+ */
+const isTauri = () =>
+  typeof window !== 'undefined' &&
+  !!(window.__TAURI_INTERNALS__ || window.__TAURI__);
 
-  if (body !== undefined) {
-    if (isForm) {
-      opts.body = body; // FormData — let the browser set Content-Type
-    } else {
-      opts.headers['Content-Type'] = 'application/json; charset=utf-8';
-      opts.body = JSON.stringify(body);
+function failure(raw) {
+  const status =
+    raw && typeof raw === 'object' && typeof raw.status === 'number' ? raw.status : undefined;
+  const message =
+    raw && typeof raw === 'object' && typeof raw.message === 'string'
+      ? raw.message
+      : typeof raw === 'string' && raw
+        ? raw
+        : undefined;
+  const error = new Error(
+    message || `অনুরোধ ব্যর্থ হয়েছে${status ? ` (${bnNum(status)})` : ''}`
+  );
+  if (status) error.status = status;
+  error.payload = raw;
+  return error;
+}
+
+let wasmReady = null;
+
+async function callRaw(op, payload) {
+  if (isTauri()) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke('api_call', { op, payload: payload ?? null });
+  }
+  if (!wasmReady) {
+    wasmReady = (async () => {
+      const mod = await import('../wasm/questionbank_wasm.js');
+      await mod.default();
+      await mod.boot();
+      return mod;
+    })();
+  }
+  const wasm = await wasmReady;
+  return wasm.call(op, payload ?? null);
+}
+
+export async function call(op, payload) {
+  try {
+    return await callRaw(op, payload);
+  } catch (raw) {
+    throw failure(raw);
+  }
+}
+
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      resolve(text.slice(text.indexOf(',') + 1));
+    };
+    reader.onerror = () => reject(reader.error || new Error('ফাইল পড়া যায়নি'));
+    reader.readAsDataURL(file);
+  });
+
+async function formPayload(formData) {
+  const payload = {};
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === 'string') {
+      payload[key] = value;
+    } else if (value && typeof value.arrayBuffer === 'function') {
+      payload[key] = {
+        data_base64: await fileToBase64(value),
+        filename: value.name || '',
+      };
     }
   }
-
-  const res = await fetch(path, opts);
-
-  if (res.status === 204) return null;
-
-  const ct = res.headers.get('content-type') || '';
-  const payload = ct.includes('application/json')
-    ? await res.json().catch(() => null)
-    : await res.text().catch(() => '');
-
-  if (!res.ok) {
-    const message =
-      (payload && payload.error && payload.error.message) ||
-      (typeof payload === 'string' && payload) ||
-      `অনুরোধ ব্যর্থ হয়েছে (${bnNum(res.status)})`;
-    const err = new Error(message);
-    err.status = res.status;
-    err.payload = payload;
-    throw err;
-  }
-
   return payload;
 }
 
+const compact = (params) =>
+  Object.fromEntries(
+    Object.entries(params).filter(
+      ([, value]) => value !== undefined && value !== null && value !== ''
+    )
+  );
+
 export const API = {
-  health: () => http('/health'),
+  health: () => call('health'),
 
   institute: {
-    get: () => http('/api/institute'),
-    update: (body) => http('/api/institute', { method: 'PUT', body }),
-    uploadLogo: (file) => {
-      const fd = new FormData();
-      fd.append('logo', file);
-      return http('/api/institute/logo', { method: 'PUT', body: fd, isForm: true });
-    },
-    deleteLogo: () => http('/api/institute/logo', { method: 'DELETE' }),
+    get: () => call('institute.get'),
+    update: (body) => call('institute.update', body),
+    uploadLogo: async (file) =>
+      call('institute.upload_logo', {
+        logo: {
+          data_base64: await fileToBase64(file),
+          filename: file?.name || '',
+        },
+      }),
+    deleteLogo: () => call('institute.delete_logo'),
   },
 
   classes: {
-    list: () => http('/api/classes'),
-    get: (id) => http(`/api/classes/${id}`),
-    create: (body) => http('/api/classes', { method: 'POST', body }),
-    update: (id, body) => http(`/api/classes/${id}`, { method: 'PUT', body }),
-    remove: (id) => http(`/api/classes/${id}`, { method: 'DELETE' }),
+    list: () => call('classes.list'),
+    get: (id) => call('classes.get', { id }),
+    create: (body) => call('classes.create', body),
+    update: (id, body) => call('classes.update', { id, ...body }),
+    remove: (id) => call('classes.delete', { id }),
   },
 
   subjects: {
-    list: (classId) => http(`/api/classes/${classId}/subjects`),
-    get: (id) => http(`/api/subjects/${id}`),
-    create: (classId, body) => http(`/api/classes/${classId}/subjects`, { method: 'POST', body }),
-    update: (id, body) => http(`/api/subjects/${id}`, { method: 'PUT', body }),
-    remove: (id) => http(`/api/subjects/${id}`, { method: 'DELETE' }),
+    list: (classId) => call('subjects.list', { class_id: classId }),
+    get: (id) => call('subjects.get', { id }),
+    create: (classId, body) => call('subjects.create', { class_id: classId, ...body }),
+    update: (id, body) => call('subjects.update', { id, ...body }),
+    remove: (id) => call('subjects.delete', { id }),
   },
 
   chapters: {
-    list: (subjectId) => http(`/api/subjects/${subjectId}/chapters`),
-    get: (id) => http(`/api/chapters/${id}`),
-    create: (subjectId, body) =>
-      http(`/api/subjects/${subjectId}/chapters`, { method: 'POST', body }),
-    update: (id, body) => http(`/api/chapters/${id}`, { method: 'PUT', body }),
-    remove: (id) => http(`/api/chapters/${id}`, { method: 'DELETE' }),
+    list: (subjectId) => call('chapters.list', { subject_id: subjectId }),
+    get: (id) => call('chapters.get', { id }),
+    create: (subjectId, body) => call('chapters.create', { subject_id: subjectId, ...body }),
+    update: (id, body) => call('chapters.update', { id, ...body }),
+    remove: (id) => call('chapters.delete', { id }),
   },
 
   types: {
-    list: (subjectId) => http(`/api/subjects/${subjectId}/question-types`),
-    create: (subjectId, body) =>
-      http(`/api/subjects/${subjectId}/question-types`, { method: 'POST', body }),
-    update: (id, body) => http(`/api/question-types/${id}`, { method: 'PUT', body }),
-    remove: (id) => http(`/api/question-types/${id}`, { method: 'DELETE' }),
+    list: (subjectId) => call('types.list', { subject_id: subjectId }),
+    create: (subjectId, body) => call('types.create', { subject_id: subjectId, ...body }),
+    update: (id, body) => call('types.update', { id, ...body }),
+    remove: (id) => call('types.delete', { id }),
   },
 
   questions: {
-    list: (subjectId, params = {}) => {
-      const qs = new URLSearchParams();
-      Object.entries(params).forEach(([k, v]) => {
-        if (v === undefined || v === null || v === '') return;
-        qs.set(k, v);
-      });
-      const tail = qs.toString();
-      return http(`/api/subjects/${subjectId}/questions${tail ? '?' + tail : ''}`);
-    },
-    get: (id) => http(`/api/questions/${id}`),
-    create: (subjectId, body) =>
-      http(`/api/subjects/${subjectId}/questions`, { method: 'POST', body }),
-    createForm: (subjectId, fd) =>
-      http(`/api/subjects/${subjectId}/questions`, { method: 'POST', body: fd, isForm: true }),
-    update: (id, body) => http(`/api/questions/${id}`, { method: 'PUT', body }),
-    updateForm: (id, fd) =>
-      http(`/api/questions/${id}`, { method: 'PUT', body: fd, isForm: true }),
-    remove: (id) => http(`/api/questions/${id}`, { method: 'DELETE' }),
+    list: (subjectId, params = {}) =>
+      call('questions.list', { subject_id: subjectId, ...compact(params) }),
+    get: (id) => call('questions.get', { id }),
+    create: (subjectId, body) => call('questions.create', { subject_id: subjectId, ...body }),
+    createForm: async (subjectId, formData) =>
+      call('questions.create', {
+        subject_id: subjectId,
+        ...(await formPayload(formData)),
+      }),
+    update: (id, body) => call('questions.update', { id, ...body }),
+    updateForm: async (id, formData) =>
+      call('questions.update', { id, ...(await formPayload(formData)) }),
+    remove: (id) => call('questions.delete', { id }),
   },
 
-  generate: (body) => http('/api/generate', { method: 'POST', body }),
+  generate: (body) => call('generate', body),
 
   papers: {
-    list: () => http('/api/papers'),
-    get: (id) => http(`/api/papers/${id}`),
-    remove: (id) => http(`/api/papers/${id}`, { method: 'DELETE' }),
+    list: () => call('papers.list'),
+    get: (id) => call('papers.get', { id }),
+    remove: (id) => call('papers.delete', { id }),
+  },
+
+  transfer: {
+    exportFile: (options = {}) => call('export', options),
+    importFile: (options) => call('import', options),
   },
 };

@@ -1,0 +1,19 @@
+[package]
+name = "questionbank-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Question bank desktop and mobile app"
+
+[lib]
+name = "questionbank_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+questionbank-core = { path = "../crates/core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }

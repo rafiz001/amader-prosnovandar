@@ -197,7 +197,7 @@ export function TypesTab({ subjectId, onChanged }) {
         title={`“${deleting?.name || ''}” মুছে ফেলবেন?`}
         message={
           deleting && deleting.question_count > 0
-            ? `${bnNum(deleting.question_count)}টি প্রশ্ন এখনো এই ধরন ব্যবহার করছে। আগে সেগুলো মুছুন বা সরান — অন্যথায় এপিআই অনুরোধ প্রত্যাখ্যান করবে।`
+            ? `${bnNum(deleting.question_count)}টি প্রশ্ন এখনো এই ধরন ব্যবহার করছে। আগে সেগুলো মুছুন বা সরান — অন্যথায় পরিবর্তনটি প্রত্যাখ্যাত হবে।`
             : 'এটি এই বিষয় থেকে ধরনটি সরিয়ে দেবে।'
         }
         confirmLabel="ধরন মুছুন"
