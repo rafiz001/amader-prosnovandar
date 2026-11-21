@@ -455,6 +455,15 @@ pub fn call(conn: &mut Connection, op: &str, payload: Value) -> Result<Value> {
         }
         "papers.list" => to_json(&generate::list_papers(conn)?),
         "papers.get" => generate::get_paper(conn, id_arg(&p, "id", "id")?),
+        "papers.update" => {
+            let id = id_arg(&p, "id", "id")?;
+            let paper = p
+                .get("paper")
+                .cloned()
+                .ok_or_else(|| http_err(400, "paper is required"))?;
+            generate::update_paper(conn, id, &paper)?;
+            Ok(paper)
+        }
         "papers.delete" => {
             generate::delete_paper(conn, id_arg(&p, "id", "id")?)?;
             Ok(Value::Null)

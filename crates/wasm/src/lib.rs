@@ -9,9 +9,21 @@ use serde_json::Value;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
-const DB_NAME: &str = "questionbank";
 const STORE: &str = "kv";
 const DB_KEY: &str = "db";
+
+/// GitHub Pages project sites live on the same origin, so include the first URL
+/// path segment in the IndexedDB name (e.g. "questionbank-amader-prosnovandar").
+fn db_name() -> String {
+    let slug = web_sys::window()
+        .and_then(|window| window.location().pathname().ok())
+        .unwrap_or_default()
+        .split('/')
+        .find(|part| !part.is_empty())
+        .unwrap_or("root")
+        .to_string();
+    format!("questionbank-{slug}")
+}
 
 thread_local! {
     static APP: RefCell<Option<Connection>> = const { RefCell::new(None) };
@@ -29,7 +41,8 @@ fn js_err(error: &ApiError) -> JsValue {
 }
 
 async fn open_idb() -> Option<Rexie> {
-    Rexie::builder(DB_NAME)
+    let name = db_name();
+    Rexie::builder(&name)
         .version(1)
         .add_object_store(ObjectStore::new(STORE))
         .build()

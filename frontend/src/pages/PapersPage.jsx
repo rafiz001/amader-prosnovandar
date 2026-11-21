@@ -31,7 +31,7 @@ export function PapersPage() {
   const [removing, setRemoving] = useState(false);
 
   if (viewingId != null) {
-    return <PaperDetail id={viewingId} onBack={() => setViewingId(null)} />;
+    return <PaperDetail id={viewingId} onBack={() => { setViewingId(null); reload(); }} />;
   }
 
   const remove = async () => {

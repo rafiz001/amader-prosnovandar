@@ -8,7 +8,8 @@ use crate::error::{http_err, Result};
 use crate::filters::filter_from_random;
 use crate::models::{AnswerKeyItem, Paper, PaperListItem, PaperQuestion};
 use crate::questions::{
-    data_url, file_row, get_institute, query_questions, serialize_question, QuestionRow,
+    data_url, file_row, find_question, get_institute, query_questions, serialize_question,
+    QuestionRow,
 };
 use crate::util::{
     format_iso_ms, id_from, now_ms, placeholders, sorted_keys, Fields, FieldsExt, Rng,
@@ -290,6 +291,7 @@ pub fn generate(conn: &Connection, b: &Fields) -> Result<Paper> {
         generated_at: format_iso_ms(now_ms()),
         institute,
         meta,
+        include_answers: answers,
         total_questions: picked.len(),
         total_marks: 0.0,
         questions: Vec::with_capacity(picked.len()),
@@ -300,7 +302,7 @@ pub fn generate(conn: &Connection, b: &Fields) -> Result<Paper> {
     for (i, q) in picked.iter().enumerate() {
         paper.total_marks += q.marks;
         let number = i + 1;
-        if answers && (q.kind == "mcq" || q.kind == "true_false") {
+        if q.kind == "mcq" || q.kind == "true_false" {
             key_items.push(AnswerKeyItem {
                 number,
                 type_name: q.type_name.clone(),
@@ -311,7 +313,7 @@ pub fn generate(conn: &Connection, b: &Fields) -> Result<Paper> {
         }
         paper.questions.push(PaperQuestion {
             number,
-            question: serialize_question(conn, q, answers),
+            question: serialize_question(conn, q, true),
         });
     }
     if !key_items.is_empty() {
@@ -380,6 +382,55 @@ fn resolve_legacy_file_urls(conn: &Connection, value: &mut Value) {
     }
 }
 
+/// Older saved papers may not carry answers when they were generated without them.
+/// Fill the missing answer/description/correct option from the live question bank so
+/// the preview can edit them. Existing values are never overwritten.
+fn enrich_paper(conn: &Connection, value: &mut Value) {
+    let Some(obj) = value.as_object_mut() else {
+        return;
+    };
+    if !obj.contains_key("include_answers") {
+        let inferred = obj
+            .get("answer_key")
+            .and_then(|v| v.as_array())
+            .map(|items| !items.is_empty())
+            .unwrap_or(false);
+        obj.insert("include_answers".to_string(), Value::Bool(inferred));
+    }
+    let Some(questions) = obj.get_mut("questions").and_then(|v| v.as_array_mut()) else {
+        return;
+    };
+    for item in questions {
+        let Some(q) = item.as_object_mut() else {
+            continue;
+        };
+        let Some(id) = q.get("id").and_then(Value::as_i64) else {
+            continue;
+        };
+        let needs_answer = q.get("answer").map(|v| v.is_null()).unwrap_or(true);
+        let needs_description = q.get("description").map(|v| v.is_null()).unwrap_or(true);
+        let needs_correct = q.get("kind").and_then(Value::as_str) == Some("mcq")
+            && q.get("correct_option").map(|v| v.is_null()).unwrap_or(true);
+        if !(needs_answer || needs_description || needs_correct) {
+            continue;
+        }
+        let Ok(row) = find_question(conn, id) else {
+            continue;
+        };
+        if needs_answer {
+            q.insert("answer".to_string(), Value::String(row.answer));
+        }
+        if needs_description {
+            q.insert("description".to_string(), Value::String(row.description));
+        }
+        if needs_correct {
+            if let Some(correct) = row.correct {
+                q.insert("correct_option".to_string(), Value::from(correct));
+            }
+        }
+    }
+}
+
 pub fn get_paper(conn: &Connection, id: i64) -> Result<Value> {
     let data: Option<String> = conn
         .query_row("SELECT data FROM papers WHERE id=?", [id], |r| r.get(0))
@@ -391,9 +442,33 @@ pub fn get_paper(conn: &Connection, id: i64) -> Result<Value> {
                 crate::error::ApiError::new(500, format!("Stored paper is invalid JSON: {e}"))
             })?;
             resolve_legacy_file_urls(conn, &mut value);
+            enrich_paper(conn, &mut value);
             Ok(value)
         }
     }
+}
+
+pub fn update_paper(conn: &Connection, id: i64, paper: &Value) -> Result<()> {
+    let Some(obj) = paper.as_object() else {
+        return Err(http_err(400, "paper must be an object"));
+    };
+    let mut value = paper.clone();
+    let mut title = obj.str("title");
+    if title.is_empty() {
+        title = "Question Paper".to_string();
+        if let Some(map) = value.as_object_mut() {
+            map.insert("title".to_string(), Value::String(title.clone()));
+        }
+    }
+    let data = serde_json::to_string(&value)?;
+    let changed = conn.execute(
+        "UPDATE papers SET title=?, data=? WHERE id=?",
+        rusqlite::params![title, data, id],
+    )?;
+    if changed == 0 {
+        return Err(http_err(404, "Paper not found"));
+    }
+    Ok(())
 }
 
 pub fn delete_paper(conn: &Connection, id: i64) -> Result<()> {

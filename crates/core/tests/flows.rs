@@ -92,13 +92,29 @@ fn crud_generate_and_papers() {
         }),
     );
     assert_eq!(paper["total_questions"], 1);
+    assert_eq!(paper["include_answers"], true);
     assert_eq!(paper["answer_key"][0]["answer"], "2, 3");
+    assert!(paper["questions"][0]["answer"].is_string());
     let paper_id = paper["id"].as_i64().unwrap();
 
     let papers = call(&mut conn, "papers.list", json!({}));
     assert_eq!(papers.as_array().unwrap().len(), 1);
     let saved = call(&mut conn, "papers.get", json!({ "id": paper_id }));
     assert_eq!(saved["title"], "মধ্যপরীক্ষা");
+
+    let mut edited = paper.clone();
+    edited["title"] = json!("সম্পাদিত প্রশ্নপত্র");
+    edited["questions"][0]["text"] = json!("সম্পাদিত প্রশ্ন");
+    call(
+        &mut conn,
+        "papers.update",
+        json!({ "id": paper_id, "paper": edited }),
+    );
+    let stored = call(&mut conn, "papers.get", json!({ "id": paper_id }));
+    assert_eq!(stored["title"], "সম্পাদিত প্রশ্নপত্র");
+    assert_eq!(stored["questions"][0]["text"], "সম্পাদিত প্রশ্ন");
+    let listed = call(&mut conn, "papers.list", json!({}));
+    assert_eq!(listed[0]["title"], "সম্পাদিত প্রশ্নপত্র");
 
     call(&mut conn, "papers.delete", json!({ "id": paper_id }));
     assert_eq!(
@@ -163,6 +179,18 @@ fn filters_and_random_generation() {
     );
     assert_eq!(paper["total_questions"], 2);
     assert_eq!(paper["institute"]["name"], "");
+
+    let hidden = call(
+        &mut conn,
+        "generate",
+        json!({
+            "subject_id": subject_id,
+            "random": { "difficulty": "easy", "count": 1 },
+            "include_answers": false
+        }),
+    );
+    assert_eq!(hidden["include_answers"], false);
+    assert!(hidden["questions"][0]["answer"].is_string());
 
     let err = service::call(
         &mut conn,
@@ -302,6 +330,7 @@ fn legacy_paper_file_urls_are_resolved() {
     let logo = paper["institute"]["logo_url"].as_str().unwrap();
     assert!(logo.starts_with("data:image/png;base64,"));
     assert_eq!(paper["questions"][0]["image_url"], logo);
+    assert_eq!(paper["include_answers"], false);
 }
 
 fn base64_decode(text: &str) -> Vec<u8> {

@@ -37,7 +37,7 @@ export function GeneratePage() {
     shuffle_questions: false,
     shuffle_options: false,
     include_answers: false,
-    save: false,
+    save: true,
     duration_minutes: '',
   });
 

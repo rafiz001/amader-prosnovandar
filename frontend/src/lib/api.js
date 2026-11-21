@@ -155,6 +155,7 @@ export const API = {
   papers: {
     list: () => call('papers.list'),
     get: (id) => call('papers.get', { id }),
+    update: (id, paper) => call('papers.update', { id, paper }),
     remove: (id) => call('papers.delete', { id }),
   },
 

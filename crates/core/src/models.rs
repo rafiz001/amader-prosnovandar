@@ -114,6 +114,7 @@ pub struct Paper {
     pub generated_at: String,
     pub institute: Institute,
     pub meta: Fields,
+    pub include_answers: bool,
     pub total_questions: usize,
     pub total_marks: f64,
     pub questions: Vec<PaperQuestion>,
