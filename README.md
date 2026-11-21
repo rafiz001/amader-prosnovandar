@@ -36,10 +36,11 @@ The browser build is published to GitHub Pages on every push to `main`:
     git tag v2.0.0
     git push origin v2.0.0
 
-One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The
-workflow sets `VITE_BASE=/<repository>/` for Pages, so local and desktop builds keep the normal
-root base. After pushing, the first `main` run deploys automatically; you can also trigger it from
-**Actions → CI → Run workflow**.
+One-time setup (required): **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+`GITHUB_TOKEN` cannot create the Pages site — that API needs repository admin — so the owner has to
+enable it once from the repository settings. After that, pushes to `main` deploy automatically;
+re-run the failed workflow once. The workflow sets `VITE_BASE=/<repository>/` for Pages, so local
+and desktop builds keep the normal root base.
 
 ## Requirements
 
