@@ -1,6 +1,6 @@
 export const SUBJECT_TABS = ['questions', 'chapters', 'types'];
 
-const PAGE_ROUTES = new Set(['institute', 'classes', 'generate', 'papers']);
+const PAGE_ROUTES = new Set(['institute', 'classes', 'generate', 'papers', 'backup']);
 
 export function parseHash(hash = window.location.hash) {
   const raw = (hash || '').replace(/^#/, '');
@@ -86,6 +86,8 @@ export function buildCrumbs(route, labels) {
       return [{ name: 'generate', label: 'প্রশ্নপত্র তৈরি', path: '/generate' }];
     case 'papers':
       return [{ name: 'papers', label: 'প্রশ্নপত্রসমূহ', path: '/papers' }];
+    case 'backup':
+      return [{ name: 'backup', label: 'ব্যাকআপ ও পুনরুদ্ধার', path: '/backup' }];
     default:
       return [{ name: 'notFound', label: 'পৃষ্ঠা পাওয়া যায়নি', path: route.path || '/' }];
   }

@@ -86,7 +86,11 @@ fn persist(bytes: Vec<u8>) {
 }
 
 fn is_write(op: &str) -> bool {
-    !(op == "health" || op == "export" || op.ends_with(".list") || op.ends_with(".get"))
+    !(op == "health"
+        || op == "export"
+        || op == "backup.export"
+        || op.ends_with(".list")
+        || op.ends_with(".get"))
 }
 
 /// Called once by the frontend before any `call`.

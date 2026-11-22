@@ -14,16 +14,26 @@ use crate::questions::{
     save_file, QUESTION_KINDS,
 };
 use crate::util::{
-    b64_decode, b64_encode, contains, format_date_compact, now_ms, to_str, Fields, FieldsExt,
+    b64_decode, b64_encode, contains, format_date_compact, now_ms, placeholders, to_str, Fields,
+    FieldsExt,
 };
 
 // ---- portable document ------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocBackup {
+    pub scope: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Doc {
     pub format: String,
     pub version: i64,
     pub exported_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backup: Option<DocBackup>,
     pub institute: DocInstitute,
     pub classes: Vec<DocClass>,
     pub files: Vec<DocFile>,
@@ -95,6 +105,14 @@ pub struct DocFile {
 // ---- export -----------------------------------------------------------------
 
 pub fn build_doc(conn: &Connection, include_files: bool) -> Result<Doc> {
+    build_doc_scoped(conn, include_files, None)
+}
+
+fn build_doc_scoped(
+    conn: &Connection,
+    include_files: bool,
+    class_filter: Option<i64>,
+) -> Result<Doc> {
     let mut keys: HashMap<i64, String> = HashMap::new();
     let mut files: Vec<DocFile> = Vec::new();
 
@@ -162,22 +180,47 @@ pub fn build_doc(conn: &Connection, include_files: bool) -> Result<Doc> {
             None,
         ),
     };
-    let mut institute = institute;
-    institute.logo = key_for(conn, &mut keys, &mut files, logo_id, include_files)?;
+    let institute = if class_filter.is_some() {
+        DocInstitute {
+            name: String::new(),
+            location: String::new(),
+            logo: None,
+        }
+    } else {
+        let mut institute = institute;
+        institute.logo = key_for(conn, &mut keys, &mut files, logo_id, include_files)?;
+        institute
+    };
 
     let mut doc = Doc {
         format: "question-bank".to_string(),
         version: 2,
         exported_at: crate::util::format_iso_ms(now_ms()),
+        backup: Some(DocBackup {
+            scope: if class_filter.is_some() {
+                "class"
+            } else {
+                "full"
+            }
+            .to_string(),
+            class_name: None,
+        }),
         institute,
         classes: Vec::new(),
         files: Vec::new(),
     };
 
-    let mut stmt = conn.prepare("SELECT id, name, description FROM classes ORDER BY id")?;
-    let classes: Vec<(i64, String, String)> = {
-        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
-        rows.collect::<rusqlite::Result<Vec<_>>>()?
+    let classes: Vec<(i64, String, String)> = match class_filter {
+        Some(class_id) => {
+            let mut stmt = conn.prepare("SELECT id, name, description FROM classes WHERE id=?")?;
+            let rows = stmt.query_map([class_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        None => {
+            let mut stmt = conn.prepare("SELECT id, name, description FROM classes ORDER BY id")?;
+            let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()?
+        }
     };
 
     for (class_id, class_name, class_desc) in classes {
@@ -258,6 +301,12 @@ pub fn build_doc(conn: &Connection, include_files: bool) -> Result<Doc> {
         doc.classes.push(dc);
     }
 
+    if class_filter.is_some() {
+        let class_name = doc.classes.first().map(|c| c.name.clone());
+        if let Some(backup) = doc.backup.as_mut() {
+            backup.class_name = class_name;
+        }
+    }
     doc.files = files;
     Ok(doc)
 }
@@ -305,6 +354,64 @@ pub fn export(conn: &mut Connection, format: &str, include_files: bool) -> Resul
             })
         }
         _ => Err(http_err(400, "format must be json, yml or sqlite")),
+    }
+}
+
+fn file_slug(name: &str) -> String {
+    let slug: String = name
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect();
+    let slug = slug.trim_matches('-');
+    if slug.is_empty() {
+        "class".to_string()
+    } else {
+        slug.to_string()
+    }
+}
+
+fn backup_stamp(ms: i64) -> String {
+    crate::util::format_iso_ms(ms)
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(14)
+        .collect()
+}
+
+pub fn export_backup(
+    conn: &mut Connection,
+    scope: &str,
+    class_id: Option<i64>,
+    include_files: bool,
+) -> Result<ExportFile> {
+    let stamp = backup_stamp(now_ms());
+    match scope {
+        "full" => {
+            let bytes = db::serialize(conn)?;
+            Ok(ExportFile {
+                filename: format!("question-bank-full-{stamp}.sqlite"),
+                mime: "application/vnd.sqlite3".to_string(),
+                data_base64: b64_encode(&bytes),
+            })
+        }
+        "class" => {
+            let id =
+                class_id.ok_or_else(|| http_err(400, "class_id is required for a class backup"))?;
+            crate::basic::assert_class(conn, id)?;
+            let doc = build_doc_scoped(conn, include_files, Some(id))?;
+            let bytes = serde_json::to_vec_pretty(&doc)?;
+            let name = doc
+                .classes
+                .first()
+                .map(|c| c.name.as_str())
+                .unwrap_or("class");
+            Ok(ExportFile {
+                filename: format!("question-bank-class-{}-{stamp}.json", file_slug(name)),
+                mime: "application/json; charset=utf-8".to_string(),
+                data_base64: b64_encode(&bytes),
+            })
+        }
+        _ => Err(http_err(400, "scope must be \"full\" or \"class\"")),
     }
 }
 
@@ -680,6 +787,32 @@ pub fn import_document(conn: &Connection, doc: &Fields, mode: &str) -> Result<Im
     Ok(stats)
 }
 
+fn parse_doc(data: &[u8], format: &str) -> Result<Fields> {
+    match format {
+        "json" => {
+            let value: Value = serde_json::from_slice(strip_bom(data))
+                .map_err(|e| http_err(422, format!("Could not read the JSON file: {e}")))?;
+            value
+                .as_object()
+                .cloned()
+                .ok_or_else(|| http_err(422, "Invalid document: expected a JSON object"))
+        }
+        "yml" => {
+            let value: serde_yaml::Value = serde_yaml::from_slice(strip_bom(data))
+                .map_err(|e| http_err(422, format!("Could not read the YML file: {e}")))?;
+            let json = serde_json::to_value(value)
+                .map_err(|e| http_err(422, format!("Could not read the YML file: {e}")))?;
+            json.as_object().cloned().ok_or_else(|| {
+                http_err(
+                    422,
+                    "Could not read the YML file: the document root must be a mapping",
+                )
+            })
+        }
+        _ => Err(http_err(400, "document format must be json or yml")),
+    }
+}
+
 pub fn import_data(
     conn: &mut Connection,
     data: &[u8],
@@ -693,28 +826,10 @@ pub fn import_data(
         mode.to_lowercase()
     };
     let format = detect_format(data, filename, hint)?;
-    let doc: Fields = match format.as_str() {
-        "json" => {
-            let value: Value = serde_json::from_slice(strip_bom(data))
-                .map_err(|e| http_err(422, format!("Could not read the JSON file: {e}")))?;
-            value
-                .as_object()
-                .cloned()
-                .ok_or_else(|| http_err(422, "Invalid document: expected a JSON object"))?
-        }
-        "yml" => {
-            let value: serde_yaml::Value = serde_yaml::from_slice(strip_bom(data))
-                .map_err(|e| http_err(422, format!("Could not read the YML file: {e}")))?;
-            let json = serde_json::to_value(value)
-                .map_err(|e| http_err(422, format!("Could not read the YML file: {e}")))?;
-            json.as_object().cloned().ok_or_else(|| {
-                http_err(
-                    422,
-                    "Could not read the YML file: the document root must be a mapping",
-                )
-            })?
-        }
-        _ => doc_from_sqlite(data)?,
+    let doc = if format == "sqlite" {
+        doc_from_sqlite(data)?
+    } else {
+        parse_doc(data, &format)?
     };
 
     let stats = import_document(conn, &doc, &mode)?;
@@ -749,4 +864,209 @@ pub fn stats_value(mode: &str, stats: &ImportStats) -> Value {
         Value::from(stats.questions_skipped_duplicate),
     );
     Value::Object(map)
+}
+
+// ---- backup & restore -------------------------------------------------------
+
+const RESTORE_DELETE_ORDER: [&str; 8] = [
+    "questions",
+    "chapters",
+    "question_types",
+    "subjects",
+    "classes",
+    "papers",
+    "institute",
+    "files",
+];
+
+const RESTORE_INSERT_ORDER: [&str; 8] = [
+    "files",
+    "institute",
+    "classes",
+    "subjects",
+    "chapters",
+    "question_types",
+    "questions",
+    "papers",
+];
+
+fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info(\"{table}\")"))?;
+    let rows = stmt.query_map([], |r| r.get::<_, String>(1))?;
+    let mut columns = Vec::new();
+    for row in rows {
+        columns.push(row?);
+    }
+    Ok(columns)
+}
+
+fn copy_table(dst: &Connection, src: &Connection, table: &str) -> Result<()> {
+    let dst_columns = table_columns(dst, table)?;
+    let src_columns = table_columns(src, table)?;
+    let columns: Vec<String> = dst_columns
+        .into_iter()
+        .filter(|c| src_columns.contains(c))
+        .collect();
+    if columns.is_empty() {
+        return Err(http_err(
+            422,
+            format!("Not a question-bank backup: SQLite file has no usable \"{table}\" columns"),
+        ));
+    }
+    let column_list = columns.join(", ");
+    let mut insert = dst.prepare(&format!(
+        "INSERT INTO \"{table}\" ({column_list}) VALUES ({})",
+        placeholders(columns.len())
+    ))?;
+    let mut stmt = src.prepare(&format!("SELECT {column_list} FROM \"{table}\""))?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let values = (0..columns.len())
+            .map(|i| row.get::<_, SqlValue>(i))
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        insert.execute(params_from_iter(values.iter()))?;
+    }
+    Ok(())
+}
+
+/// Replaces the live database with a full SQLite backup image. Rows are copied
+/// table by table so the connection keeps using the real database file.
+pub fn restore_full(conn: &mut Connection, data: &[u8]) -> Result<()> {
+    let mut src = db::open_in_memory()
+        .map_err(|e| ApiError::new(500, format!("restore: scratch database: {}", e.message)))?;
+    db::deserialize(&mut src, data)
+        .map_err(|e| ApiError::new(422, format!("restore: read backup: {}", e.message)))?;
+
+    let mut tables = table_set(&src)
+        .map_err(|e| ApiError::new(500, format!("restore: inspect backup: {}", e.message)))?;
+    for table in ["classes", "subjects", "questions"] {
+        if !tables.get(table).copied().unwrap_or(false) {
+            return Err(http_err(
+                422,
+                format!("Not a question-bank backup: SQLite file has no \"{table}\" table"),
+            ));
+        }
+    }
+    if tables.get("schema_migrations").copied().unwrap_or(false) {
+        db::run_migrations(&src)
+            .map_err(|e| http_err(422, format!("Could not upgrade the SQLite backup: {e}")))?;
+        tables = table_set(&src)
+            .map_err(|e| ApiError::new(500, format!("restore: inspect backup: {}", e.message)))?;
+    }
+    for table in RESTORE_INSERT_ORDER {
+        if !tables.get(table).copied().unwrap_or(false) {
+            return Err(http_err(
+                422,
+                format!("Not a question-bank backup: SQLite file has no \"{table}\" table"),
+            ));
+        }
+    }
+    let institute_rows: i64 = src.query_row("SELECT COUNT(*) FROM institute", [], |r| r.get(0))?;
+    if institute_rows != 1 {
+        return Err(http_err(
+            422,
+            "Not a question-bank backup: invalid institute row",
+        ));
+    }
+
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| ApiError::new(500, format!("restore: begin transaction: {e}")))?;
+    for table in RESTORE_DELETE_ORDER {
+        tx.execute(&format!("DELETE FROM \"{table}\""), [])
+            .map_err(|e| ApiError::new(500, format!("restore: clear {table}: {e}")))?;
+    }
+    for table in RESTORE_INSERT_ORDER {
+        copy_table(&tx, &src, table)
+            .map_err(|e| ApiError::new(500, format!("restore: copy {table}: {}", e.message)))?;
+    }
+    tx.commit()
+        .map_err(|e| ApiError::new(500, format!("restore: commit: {e}")))?;
+    Ok(())
+}
+
+fn count_table(conn: &Connection, table: &str) -> Result<i64> {
+    conn.query_row(&format!("SELECT COUNT(*) FROM \"{table}\""), [], |r| {
+        r.get(0)
+    })
+    .map_err(ApiError::from)
+}
+
+fn restore_value(conn: &Connection, scope: &str, mode: &str, stats: &ImportStats) -> Result<Value> {
+    let mut map = Map::new();
+    map.insert("scope".to_string(), Value::String(scope.to_string()));
+    map.insert("mode".to_string(), Value::String(mode.to_string()));
+    map.insert(
+        "classes".to_string(),
+        Value::from(count_table(conn, "classes")?),
+    );
+    map.insert(
+        "subjects".to_string(),
+        Value::from(count_table(conn, "subjects")?),
+    );
+    map.insert(
+        "questions".to_string(),
+        Value::from(count_table(conn, "questions")?),
+    );
+    map.insert(
+        "papers".to_string(),
+        Value::from(count_table(conn, "papers")?),
+    );
+    map.insert(
+        "classes_created".to_string(),
+        Value::from(stats.classes_created),
+    );
+    map.insert(
+        "subjects_created".to_string(),
+        Value::from(stats.subjects_created),
+    );
+    map.insert(
+        "questions_added".to_string(),
+        Value::from(stats.questions_added),
+    );
+    map.insert(
+        "questions_skipped_duplicate".to_string(),
+        Value::from(stats.questions_skipped_duplicate),
+    );
+    Ok(Value::Object(map))
+}
+
+pub fn restore(
+    conn: &mut Connection,
+    data: &[u8],
+    filename: &str,
+    hint: &str,
+    mode: &str,
+) -> Result<Value> {
+    let format = detect_format(data, filename, hint)?;
+    if format == "sqlite" {
+        restore_full(conn, data)?;
+        return restore_value(conn, "full", "replace", &ImportStats::default());
+    }
+
+    let mut doc = parse_doc(data, &format)?;
+    let scope = doc
+        .get("backup")
+        .and_then(|v| v.as_object())
+        .map(|backup| backup.str("scope"))
+        .filter(|scope| scope == "class" || scope == "full")
+        .unwrap_or_else(|| "full".to_string());
+    // A class backup must not replace the local institution profile.
+    if scope == "class" {
+        doc.remove("institute");
+    }
+    // Portable documents are merged unless the caller explicitly asks otherwise.
+    let requested = if mode.is_empty() { "merge" } else { mode };
+    let requested = requested.to_lowercase();
+    if requested != "merge" && requested != "replace" {
+        return Err(http_err(400, "mode must be \"merge\" or \"replace\""));
+    }
+    // A class backup is always merged so it cannot wipe the rest of the database.
+    let mode = if scope == "class" {
+        "merge"
+    } else {
+        requested.as_str()
+    };
+    let stats = import_document(conn, &doc, mode)?;
+    restore_value(conn, &scope, mode, &stats)
 }

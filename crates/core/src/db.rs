@@ -87,6 +87,24 @@ pub fn deserialize(conn: &mut Connection, bytes: &[u8]) -> Result<()> {
     if bytes.is_empty() {
         return Ok(());
     }
-    conn.deserialize_read_exact(MAIN_DB, bytes, bytes.len(), false)
+
+    // A snapshot taken from a WAL-mode database keeps the WAL flags in the
+    // header (bytes 18 and 19). Loading it into a memory connection then tries
+    // to open a WAL file and fails, so normalize the image to rollback journal.
+    let needs_fix = bytes.len() >= 20
+        && bytes.starts_with(b"SQLite format 3\0")
+        && (bytes[18] != 1 || bytes[19] != 1);
+    let owned;
+    let data = if needs_fix {
+        let mut copy = bytes.to_vec();
+        copy[18] = 1;
+        copy[19] = 1;
+        owned = copy;
+        owned.as_slice()
+    } else {
+        bytes
+    };
+
+    conn.deserialize_read_exact(MAIN_DB, data, data.len(), false)
         .map_err(|e| ApiError::new(422, format!("Could not read the SQLITE file: {e}")))
 }

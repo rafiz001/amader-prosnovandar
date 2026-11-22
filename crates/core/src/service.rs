@@ -480,6 +480,48 @@ pub fn call(conn: &mut Connection, op: &str, payload: Value) -> Result<Value> {
         }
         "import" => import_op(conn, &p),
 
+        // ---- backup & restore
+        "backup.export" => {
+            let scope = p.str("scope").to_lowercase();
+            let scope = if scope.is_empty() {
+                "full".to_string()
+            } else {
+                scope
+            };
+            let include_files = !p
+                .get("include_files")
+                .map(|v| to_str(v) == "false")
+                .unwrap_or(false);
+            let class_id = if p.get("class_id").is_some() {
+                Some(id_arg(&p, "class_id", "class id")?)
+            } else {
+                None
+            };
+            to_json(&transfer::export_backup(
+                conn,
+                &scope,
+                class_id,
+                include_files,
+            )?)
+        }
+        "backup.restore" => {
+            let raw = p.str("data_base64");
+            if raw.is_empty() {
+                return Err(http_err(
+                    400,
+                    "Send the backup file as base64 in data_base64",
+                ));
+            }
+            let data = b64_decode(&raw)?;
+            transfer::restore(
+                conn,
+                &data,
+                &p.str("filename"),
+                &p.str("format"),
+                &p.str("mode"),
+            )
+        }
+
         _ => Err(http_err(404, "Route not found")),
     }
 }

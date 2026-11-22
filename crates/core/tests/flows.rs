@@ -333,6 +333,261 @@ fn legacy_paper_file_urls_are_resolved() {
     assert_eq!(paper["include_answers"], false);
 }
 
+#[test]
+fn full_and_class_backups_restore() {
+    let mut conn = app();
+    call(
+        &mut conn,
+        "institute.update",
+        json!({ "name": "আদর্শ বিদ্যালয়", "location": "ঢাকা" }),
+    );
+
+    let class_a = call(
+        &mut conn,
+        "classes.create",
+        json!({ "name": "দশম শ্রেণি", "description": "SSC" }),
+    );
+    let class_a_id = class_a["id"].as_i64().unwrap();
+    let subject_a = call(
+        &mut conn,
+        "subjects.create",
+        json!({ "class_id": class_a_id, "name": "গণিত", "code": "MATH" }),
+    );
+    let subject_a_id = subject_a["id"].as_i64().unwrap();
+    let mcq = call(
+        &mut conn,
+        "types.list",
+        json!({ "subject_id": subject_a_id }),
+    )
+    .as_array()
+    .unwrap()
+    .iter()
+    .find(|t| t["kind"] == "mcq")
+    .unwrap()
+    .clone();
+    call(
+        &mut conn,
+        "questions.create",
+        json!({
+            "subject_id": subject_a_id,
+            "type_id": mcq["id"],
+            "text": "২ + ২ কত?",
+            "options": ["২", "৩", "৪", "৫"],
+            "correct_option": 3,
+            "lang": "bn"
+        }),
+    );
+    let paper = call(
+        &mut conn,
+        "generate",
+        json!({
+            "title": "মডেল টেস্ট",
+            "subject_id": subject_a_id,
+            "question_ids": [1],
+            "include_answers": true,
+            "save": true
+        }),
+    );
+    let paper_id = paper["id"].as_i64().unwrap();
+
+    let class_b = call(&mut conn, "classes.create", json!({ "name": "একাদশ শ্রেণি" }));
+    let class_b_id = class_b["id"].as_i64().unwrap();
+    let subject_b = call(
+        &mut conn,
+        "subjects.create",
+        json!({ "class_id": class_b_id, "name": "রসায়ন" }),
+    );
+    let subject_b_id = subject_b["id"].as_i64().unwrap();
+    let plain = call(
+        &mut conn,
+        "types.list",
+        json!({ "subject_id": subject_b_id }),
+    )
+    .as_array()
+    .unwrap()
+    .iter()
+    .find(|t| t["kind"] == "text")
+    .unwrap()
+    .clone();
+    call(
+        &mut conn,
+        "questions.create",
+        json!({
+            "subject_id": subject_b_id,
+            "type_id": plain["id"],
+            "text": "পানির সংকেত লেখো।",
+            "answer": "H₂O"
+        }),
+    );
+
+    let full = call(&mut conn, "backup.export", json!({ "scope": "full" }));
+    assert!(full["filename"].as_str().unwrap().ends_with(".sqlite"));
+    let full_bytes = base64_decode(full["data_base64"].as_str().unwrap());
+    assert!(full_bytes.starts_with(b"SQLite format 3"));
+
+    call(&mut conn, "classes.delete", json!({ "id": class_a_id }));
+    call(&mut conn, "classes.delete", json!({ "id": class_b_id }));
+    call(&mut conn, "papers.delete", json!({ "id": paper_id }));
+    assert_eq!(
+        call(&mut conn, "classes.list", json!({}))
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+
+    let restored = call(
+        &mut conn,
+        "backup.restore",
+        json!({ "data_base64": full["data_base64"], "filename": "full.sqlite" }),
+    );
+    assert_eq!(restored["scope"], "full");
+    assert_eq!(restored["mode"], "replace");
+    assert_eq!(restored["classes"], 2);
+    assert_eq!(restored["subjects"], 2);
+    assert_eq!(restored["questions"], 2);
+    assert_eq!(restored["papers"], 1);
+    assert_eq!(
+        call(&mut conn, "papers.get", json!({ "id": paper_id }))["title"],
+        "মডেল টেস্ট"
+    );
+
+    let class_backup = call(
+        &mut conn,
+        "backup.export",
+        json!({ "scope": "class", "class_id": class_a_id }),
+    );
+    assert!(class_backup["filename"]
+        .as_str()
+        .unwrap()
+        .ends_with(".json"));
+    let doc: Value = serde_json::from_slice(&base64_decode(
+        class_backup["data_base64"].as_str().unwrap(),
+    ))
+    .unwrap();
+    assert_eq!(doc["backup"]["scope"], "class");
+    assert_eq!(doc["backup"]["class_name"], "দশম শ্রেণি");
+    assert_eq!(doc["institute"]["name"], "");
+    assert_eq!(doc["classes"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        doc["classes"][0]["subjects"][0]["questions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    call(&mut conn, "classes.delete", json!({ "id": class_a_id }));
+    call(
+        &mut conn,
+        "institute.update",
+        json!({ "name": "স্থানীয় বিদ্যালয়" }),
+    );
+    assert_eq!(
+        call(&mut conn, "classes.list", json!({}))
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let restored = call(
+        &mut conn,
+        "backup.restore",
+        json!({
+            "data_base64": class_backup["data_base64"],
+            "filename": class_backup["filename"]
+        }),
+    );
+    assert_eq!(restored["scope"], "class");
+    assert_eq!(restored["mode"], "merge");
+    assert_eq!(restored["classes_created"], 1);
+    assert_eq!(restored["questions_added"], 1);
+    assert_eq!(restored["classes"], 2);
+    assert_eq!(
+        call(&mut conn, "institute.get", json!({}))["name"],
+        "স্থানীয় বিদ্যালয়"
+    );
+    assert_eq!(
+        call(&mut conn, "classes.list", json!({}))
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+#[test]
+fn full_backup_restore_persists_on_a_file_database() {
+    let dir = std::env::temp_dir().join(format!("questionbank-restore-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("app.sqlite");
+    let path = path.to_string_lossy().to_string();
+
+    {
+        let mut conn = db::open(&path).unwrap();
+        db::run_migrations(&conn).unwrap();
+        let class = call(&mut conn, "classes.create", json!({ "name": "ফাইল শ্রেণি" }));
+        let class_id = class["id"].as_i64().unwrap();
+        let subject = call(
+            &mut conn,
+            "subjects.create",
+            json!({ "class_id": class_id, "name": "জীববিজ্ঞান" }),
+        );
+        let subject_id = subject["id"].as_i64().unwrap();
+        let plain = call(&mut conn, "types.list", json!({ "subject_id": subject_id }))
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["kind"] == "text")
+            .unwrap()
+            .clone();
+        call(
+            &mut conn,
+            "questions.create",
+            json!({
+                "subject_id": subject_id,
+                "type_id": plain["id"],
+                "text": "কোষ কী?"
+            }),
+        );
+
+        let full = call(&mut conn, "backup.export", json!({ "scope": "full" }));
+        call(&mut conn, "classes.delete", json!({ "id": class_id }));
+        assert_eq!(
+            call(&mut conn, "classes.list", json!({}))
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
+
+        let restored = call(
+            &mut conn,
+            "backup.restore",
+            json!({ "data_base64": full["data_base64"], "filename": full["filename"] }),
+        );
+        assert_eq!(restored["classes"], 1);
+        assert_eq!(restored["questions"], 1);
+    }
+
+    let conn = db::open(&path).unwrap();
+    let classes = questionbank_core::basic::list_classes(&conn).unwrap();
+    assert_eq!(classes.len(), 1);
+    assert_eq!(classes[0].name, "ফাইল শ্রেণি");
+    let questions = questionbank_core::questions::query_questions(
+        &conn,
+        false,
+        " WHERE q.subject_id = 1",
+        vec![],
+    )
+    .unwrap();
+    assert_eq!(questions.len(), 1);
+    drop(conn);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 fn base64_decode(text: &str) -> Vec<u8> {
     use base64::Engine;
     base64::engine::general_purpose::STANDARD

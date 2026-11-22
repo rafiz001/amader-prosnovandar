@@ -119,6 +119,9 @@ Tauri mobile:
   options, correct option, answers, descriptions, marks and figures in place. Changes are saved
   automatically. **উত্তর দেখান** shows or hides the answers, descriptions and answer key without
   deleting them from the stored paper.
+- **Backup** — take a full SQLite backup (every class, question, image and saved paper) or a
+  class-wise JSON backup, then restore either file. A full backup replaces the database; a class
+  backup is merged by class name.
 
 Question text, answers and solutions are Markdown (GFM). Inline `$...$` / `$$...$$` math and the
 display-math field are rendered with KaTeX. Arabic-script languages render right-to-left.
@@ -144,7 +147,8 @@ display-math field are rendered with KaTeX. Arabic-script languages render right
 ### The call surface
 
 The UI calls operations such as `classes.list`, `questions.create`, `generate`,
-`papers.get`, `export` and `import`. The payload is a plain JSON object; each call returns JSON.
+`papers.get`, `export`, `import`, `backup.export` and `backup.restore`. The payload is a plain
+JSON object; each call returns JSON.
 Errors carry `{ status, message }`, so the UI keeps the same status-based behaviour as before.
 Saved papers can be updated with `papers.update` (`{ id, paper }`); this is what the editable
 preview uses. A stored paper always keeps answers and descriptions so it can be edited later —
@@ -161,6 +165,15 @@ file-serving endpoint is needed.
 mode: 'merge' | 'replace' })` imports JSON, YAML or SQLite. The JSON/YAML document is the same
 id-independent version-2 format as before (chapters, question types, answers, descriptions,
 base64 images); version-1 documents are still accepted. Imports are atomic.
+
+### Backup / restore
+
+`API.backup.exportFull()` returns a full SQLite image; `API.backup.exportClass(classId)` returns a
+portable version-2 JSON document containing one class (without the institute profile).
+`API.backup.restore({ data_base64, filename })` restores either file. Full SQLite backups replace
+every table, including saved papers; class backups are always merged by class name and never touch
+the rest of the database. On desktop the backup is written to the Downloads folder; in the browser
+it is downloaded normally.
 
 ## Differences from the Go version
 

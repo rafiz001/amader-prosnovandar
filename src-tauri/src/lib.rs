@@ -38,6 +38,42 @@ fn api_call(
     service::call(&mut conn, &op, payload.unwrap_or(Value::Null)).map_err(ErrorBody::from)
 }
 
+/// Saves a backup to the user's Downloads folder (or the next best place).
+/// Webviews do not reliably download Blob URLs, so desktop writes the file itself.
+#[tauri::command(rename_all = "snake_case")]
+fn save_backup_file(
+    app: tauri::AppHandle,
+    filename: String,
+    data_base64: String,
+) -> Result<String, ErrorBody> {
+    let bytes = questionbank_core::util::b64_decode(&data_base64)?;
+    let name = std::path::Path::new(&filename)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("question-bank-backup.sqlite")
+        .to_string();
+    let dir = app
+        .path()
+        .download_dir()
+        .or_else(|_| app.path().document_dir())
+        .or_else(|_| app.path().app_data_dir())
+        .map_err(|error| ErrorBody {
+            status: 500,
+            message: format!("could not find a folder for the backup: {error}"),
+        })?;
+    std::fs::create_dir_all(&dir).map_err(|error| ErrorBody {
+        status: 500,
+        message: format!("could not create the backup folder: {error}"),
+    })?;
+    let path = dir.join(name);
+    std::fs::write(&path, bytes).map_err(|error| ErrorBody {
+        status: 500,
+        message: format!("could not write the backup: {error}"),
+    })?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 fn database_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     if let Ok(custom) = std::env::var("QUESTIONBANK_DB") {
         if !custom.trim().is_empty() {
@@ -61,7 +97,7 @@ pub fn run() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![api_call])
+        .invoke_handler(tauri::generate_handler![api_call, save_backup_file])
         .run(tauri::generate_context!())
         .expect("error while running the question bank");
 }

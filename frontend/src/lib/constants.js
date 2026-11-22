@@ -34,4 +34,5 @@ export const NAV_ITEMS = [
   { key: 'classes', label: 'শ্রেণিসমূহ', icon: 'layers', hint: 'শ্রেণি, বিষয় ও অধ্যায়' },
   { key: 'generate', label: 'প্রশ্নপত্র তৈরি', icon: 'sparkles', hint: 'নতুন প্রশ্নপত্র বানান' },
   { key: 'papers', label: 'প্রশ্নপত্রসমূহ', icon: 'file', hint: 'সংরক্ষিত প্রশ্নপত্র' },
+  { key: 'backup', label: 'ব্যাকআপ ও পুনরুদ্ধার', icon: 'database', hint: 'শ্রেণি বা সম্পূর্ণ ব্যাকআপ' },
 ];

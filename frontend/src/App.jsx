@@ -11,6 +11,7 @@ import { ClassPage } from './pages/ClassPage.jsx';
 import { SubjectPage } from './pages/SubjectPage.jsx';
 import { GeneratePage } from './pages/GeneratePage.jsx';
 import { PapersPage } from './pages/PapersPage.jsx';
+import { BackupPage } from './pages/BackupPage.jsx';
 
 /**
  * Hash route shapes:
@@ -37,6 +38,8 @@ function renderRoute(route) {
       return <GeneratePage />;
     case 'papers':
       return <PapersPage />;
+    case 'backup':
+      return <BackupPage />;
     default:
       return <EmptyState icon="alert" title="পৃষ্ঠা পাওয়া যায়নি" message={`অজানা পথ: ${route.path}`} />;
   }

@@ -1,4 +1,4 @@
-import { bnNum } from './utils.js';
+import { bnNum, downloadBase64File } from './utils.js';
 
 /**
  * One API surface for both shells:
@@ -54,7 +54,23 @@ export async function call(op, payload) {
   }
 }
 
-const fileToBase64 = (file) =>
+/**
+ * Saves an exported file. Desktop writes it to the Downloads folder through
+ * the Tauri shell; the browser uses a normal Blob download.
+ */
+export async function saveDownload(file) {
+  if (isTauri()) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke('save_backup_file', {
+      filename: file.filename,
+      data_base64: file.data_base64,
+    });
+  }
+  downloadBase64File(file);
+  return '';
+}
+
+export const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -162,5 +178,11 @@ export const API = {
   transfer: {
     exportFile: (options = {}) => call('export', options),
     importFile: (options) => call('import', options),
+  },
+
+  backup: {
+    exportFull: () => call('backup.export', { scope: 'full' }),
+    exportClass: (classId) => call('backup.export', { scope: 'class', class_id: classId }),
+    restore: (options) => call('backup.restore', options),
   },
 };

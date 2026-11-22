@@ -13,6 +13,21 @@ export const bnNum = (v) => String(num(v)).replace(/\d/g, (d) => BN_DIGITS[Numbe
 
 export const optionLetter = (index) => ['ক', 'খ', 'গ', 'ঘ'][index] || bnNum(index + 1);
 
+export const downloadBase64File = ({ filename, mime, data_base64 }) => {
+  const binary = atob(data_base64 || '');
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: mime || 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename || 'backup';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 export const prettyDate = (value) => {
   if (!value) return '—';
   const iso = String(value).includes('T') ? value : String(value).replace(' ', 'T') + 'Z';
