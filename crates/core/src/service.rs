@@ -15,6 +15,7 @@ use crate::meta::{
     find_chapter, find_type, next_chapter_position, query_types, resolve_chapter, resolve_type,
 };
 use crate::models::{ImportStats, Paper, QuestionOut};
+use crate::presets;
 use crate::questions::{
     alias_description, find_question, get_institute, insert_question, normalize_question,
     purge_orphan_files, query_questions, save_file, serialize_question, update_question,
@@ -466,6 +467,17 @@ pub fn call(conn: &mut Connection, op: &str, payload: Value) -> Result<Value> {
         }
         "papers.delete" => {
             generate::delete_paper(conn, id_arg(&p, "id", "id")?)?;
+            Ok(Value::Null)
+        }
+
+        // ---- layout presets
+        "presets.list" => to_json(&presets::list(conn)?),
+        "presets.save" => {
+            let layout = p.get("layout").cloned().unwrap_or(Value::Null);
+            to_json(&presets::save(conn, &p.str("name"), &layout)?)
+        }
+        "presets.delete" => {
+            presets::delete(conn, id_arg(&p, "id", "id")?)?;
             Ok(Value::Null)
         }
 

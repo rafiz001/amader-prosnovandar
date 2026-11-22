@@ -185,4 +185,10 @@ export const API = {
     exportClass: (classId) => call('backup.export', { scope: 'class', class_id: classId }),
     restore: (options) => call('backup.restore', options),
   },
+
+  presets: {
+    list: () => call('presets.list'),
+    save: (name, layout) => call('presets.save', { name, layout }),
+    remove: (id) => call('presets.delete', { id }),
+  },
 };

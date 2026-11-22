@@ -128,7 +128,7 @@ export function QuestionPicker({
         icon="list"
       />
 
-      <div className="sticky top-16 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100 bg-indigo-50/95 px-4 py-3 backdrop-blur sm:px-5">
+      <div className="sticky top-12 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100 bg-indigo-50/95 px-4 py-3 backdrop-blur sm:px-5">
         <div className="flex items-center gap-2.5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-600 text-white shadow-sm">
             <Icon name="check" className="h-4 w-4" />

@@ -868,18 +868,19 @@ pub fn stats_value(mode: &str, stats: &ImportStats) -> Value {
 
 // ---- backup & restore -------------------------------------------------------
 
-const RESTORE_DELETE_ORDER: [&str; 8] = [
+const RESTORE_DELETE_ORDER: [&str; 9] = [
     "questions",
     "chapters",
     "question_types",
     "subjects",
     "classes",
     "papers",
+    "layout_presets",
     "institute",
     "files",
 ];
 
-const RESTORE_INSERT_ORDER: [&str; 8] = [
+const RESTORE_INSERT_ORDER: [&str; 9] = [
     "files",
     "institute",
     "classes",
@@ -888,6 +889,7 @@ const RESTORE_INSERT_ORDER: [&str; 8] = [
     "question_types",
     "questions",
     "papers",
+    "layout_presets",
 ];
 
 fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>> {

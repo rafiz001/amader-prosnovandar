@@ -115,13 +115,16 @@ Tauri mobile:
 - **Generate** — pick questions manually, shuffle questions/options, include answers, and save.
   Saving is enabled by default, so every generated paper is stored immediately.
 - **Papers** — saved papers with an editable, printable paper view and answer key. Click
-  **সম্পাদনা** on the preview to edit the title, institute line, duration, question text/math,
-  options, correct option, answers, descriptions, marks and figures in place. Changes are saved
-  automatically. **উত্তর দেখান** shows or hides the answers, descriptions and answer key without
-  deleting them from the stored paper.
-- **Backup** — take a full SQLite backup (every class, question, image and saved paper) or a
-  class-wise JSON backup, then restore either file. A full backup replaces the database; a class
-  backup is merged by class name.
+  **সম্পাদনা** on the preview to edit the institute name, class, subject, introduction, time, full
+  marks, question text/math, options, correct option, answers, descriptions, marks and figures in
+  place. Changes are saved automatically. The right panel controls page size, columns, which
+  header lines are shown, and the centered logo watermark (size, opacity, color or
+  grayscale). The same panel can save the whole arrangement as a named preset for later reuse;
+  presets live in the database and are included in full backups. **উত্তর দেখান** shows or hides
+  the answers, descriptions and answer key without deleting them from the stored paper.
+- **Backup** — take a full SQLite backup (every class, question, image, saved paper and layout
+  preset) or a class-wise JSON backup, then restore either file. A full backup replaces the
+  database; a class backup is merged by class name.
 
 Question text, answers and solutions are Markdown (GFM). Inline `$...$` / `$$...$$` math and the
 display-math field are rendered with KaTeX. Arabic-script languages render right-to-left.
@@ -147,8 +150,8 @@ display-math field are rendered with KaTeX. Arabic-script languages render right
 ### The call surface
 
 The UI calls operations such as `classes.list`, `questions.create`, `generate`,
-`papers.get`, `export`, `import`, `backup.export` and `backup.restore`. The payload is a plain
-JSON object; each call returns JSON.
+`papers.get`, `export`, `import`, `backup.export`, `backup.restore`, `presets.list`,
+`presets.save` and `presets.delete`. The payload is a plain JSON object; each call returns JSON.
 Errors carry `{ status, message }`, so the UI keeps the same status-based behaviour as before.
 Saved papers can be updated with `papers.update` (`{ id, paper }`); this is what the editable
 preview uses. A stored paper always keeps answers and descriptions so it can be edited later —

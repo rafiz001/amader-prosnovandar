@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useToast } from '../context/ToastContext.jsx';
 import { useResource } from '../hooks/useResource.js';
 import { API } from '../lib/api.js';
+import { DEFAULT_LAYOUT } from '../lib/paperLayout.js';
 import { bnNum, prettyDate } from '../lib/utils.js';
 import { Icon } from '../components/Icon.jsx';
 import {
@@ -14,13 +15,28 @@ import {
   LoadingBlock,
   PageHeader,
 } from '../components/ui/index.js';
+import { PaperLayoutPanel } from '../components/paper/PaperLayoutPanel.jsx';
 import { PaperView } from '../components/paper/PaperView.jsx';
 
 function PaperDetail({ id, onBack }) {
   const { data: paper, loading, error, reload } = useResource(() => API.papers.get(id), [id]);
+  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
   if (loading) return <LoadingBlock label="প্রশ্নপত্র লোড হচ্ছে…" />;
   if (error) return <ErrorBlock error={error} onRetry={reload} />;
-  return <PaperView paper={paper} onBack={onBack} />;
+  return (
+    <div className="paper-print-block grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="min-w-0">
+        <PaperView paper={paper} layout={layout} onBack={onBack} />
+      </div>
+      <aside className="sticky top-14 z-10 self-start max-h-[calc(100vh-4rem)] overflow-y-auto print:hidden">
+        <PaperLayoutPanel
+          layout={layout}
+          onChange={(patch) => setLayout((current) => ({ ...current, ...patch }))}
+          hasLogo={!!paper?.institute?.logo_url}
+        />
+      </aside>
+    </div>
+  );
 }
 
 export function PapersPage() {

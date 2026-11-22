@@ -57,10 +57,18 @@ export const QUESTION_MARKER_STYLES = [
 ];
 
 export const HEADING_OPTIONS = [
-  { key: 'institute', label: 'প্রতিষ্ঠানের তথ্য' },
-  { key: 'title', label: 'প্রশ্নপত্রের শিরোনাম' },
-  { key: 'summary', label: 'সারসংক্ষেপ (প্রশ্ন, নম্বর, সময়)' },
+  { key: 'institute', label: 'প্রতিষ্ঠানের নাম' },
+  { key: 'class', label: 'শ্রেণি' },
+  { key: 'subject', label: 'বিষয়' },
+  { key: 'introduction', label: 'পরিচিতি' },
+  { key: 'time', label: 'সময়' },
+  { key: 'fullMarks', label: 'পূর্ণমান' },
   { key: 'answerKey', label: 'উত্তরমালা' },
+];
+
+export const WATERMARK_COLOR_OPTIONS = [
+  { value: 'color', label: 'রঙিন' },
+  { value: 'grayscale', label: 'গ্রেস্কেল' },
 ];
 
 export const DEFAULT_LAYOUT = {
@@ -73,11 +81,47 @@ export const DEFAULT_LAYOUT = {
   markerStyle: 'bengali-dot',
   headings: {
     institute: true,
-    title: true,
-    summary: true,
+    class: true,
+    subject: true,
+    introduction: true,
+    time: true,
+    fullMarks: true,
     answerKey: true,
   },
+  watermark: {
+    enabled: true,
+    size: 55,
+    opacity: 15,
+    grayscale: false,
+  },
 };
+
+export function watermarkSettings(watermark) {
+  const source = watermark && typeof watermark === 'object' ? watermark : {};
+  let opacity = source.opacity;
+  if (
+    (opacity === undefined || opacity === null) &&
+    source.transparency !== undefined &&
+    source.transparency !== null
+  ) {
+    opacity = 100 - Number(source.transparency);
+  }
+  const numericOpacity = Number(opacity);
+  const numericSize = Number(source.size);
+  return {
+    enabled:
+      source.enabled === undefined
+        ? DEFAULT_LAYOUT.watermark.enabled
+        : Boolean(source.enabled),
+    size: Number.isFinite(numericSize)
+      ? numericSize
+      : DEFAULT_LAYOUT.watermark.size,
+    opacity: Number.isFinite(numericOpacity)
+      ? Math.min(100, Math.max(0, numericOpacity))
+      : DEFAULT_LAYOUT.watermark.opacity,
+    grayscale: Boolean(source.grayscale),
+  };
+}
 
 const DIGITS = {
   bangla: '০১২৩৪৫৬৭৮৯',

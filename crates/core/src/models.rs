@@ -1,4 +1,5 @@
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::util::Fields;
 
@@ -127,6 +128,15 @@ pub struct PaperListItem {
     pub id: i64,
     pub title: String,
     pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LayoutPresetOut {
+    pub id: i64,
+    pub name: String,
+    pub layout: Value,
+    pub created_at: String,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Default)]

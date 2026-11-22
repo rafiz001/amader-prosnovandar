@@ -17,12 +17,12 @@ export function Sidebar({ activeKey, onNavigate, open, onClose }) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-16 flex-col border-r border-slate-200 bg-white transition-transform duration-200 print:hidden',
+          'fixed inset-y-0 left-0 z-40 flex w-14 flex-col border-r border-slate-200 bg-white transition-transform duration-200 print:hidden lg:w-12',
           'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex h-16 items-center justify-center border-b border-slate-200 px-1">
+        <div className="flex h-11 items-center justify-center border-b border-slate-200 px-0.5">
           <div className="group relative">
             <Brand compact />
             <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 opacity-0 shadow-pop transition-opacity group-hover:opacity-100">
@@ -35,11 +35,11 @@ export function Sidebar({ activeKey, onNavigate, open, onClose }) {
             className="rounded-md p-1 text-slate-400 hover:bg-slate-100 lg:hidden"
             aria-label="মেনু বন্ধ করুন"
           >
-            <Icon name="x" className="h-4 w-4" />
+            <Icon name="x" className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 px-2 py-3">
+        <nav className="flex-1 space-y-0.5 px-1 py-1.5">
           {NAV_ITEMS.map((item) => {
             const active = activeKey === item.key;
             return (
@@ -48,7 +48,7 @@ export function Sidebar({ activeKey, onNavigate, open, onClose }) {
                 onClick={() => onNavigate(item)}
                 aria-label={item.label}
                 className={cn(
-                  'group relative mx-auto grid h-10 w-10 place-items-center rounded-lg transition',
+                  'group relative mx-auto grid h-9 w-9 place-items-center rounded-lg transition',
                   active
                     ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100'
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
@@ -56,7 +56,7 @@ export function Sidebar({ activeKey, onNavigate, open, onClose }) {
               >
                 <span
                   className={cn(
-                    'grid h-8 w-8 place-items-center rounded-lg transition',
+                    'grid h-7 w-7 place-items-center rounded-lg transition',
                     active
                       ? 'bg-indigo-600 text-white'
                       : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'

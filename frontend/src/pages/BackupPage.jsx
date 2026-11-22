@@ -134,7 +134,7 @@ export function BackupPage() {
         <Card>
           <CardHeader
             title="সম্পূর্ণ ব্যাকআপ"
-            subtitle="সব শ্রেণি, বিষয়, প্রশ্ন, ছবি ও সংরক্ষিত প্রশ্নপত্র"
+            subtitle="সব শ্রেণি, বিষয়, প্রশ্ন, ছবি, সংরক্ষিত প্রশ্নপত্র ও পৃষ্ঠা প্রিসেট"
             icon="database"
           />
           <div className="space-y-3 p-4 sm:p-5">

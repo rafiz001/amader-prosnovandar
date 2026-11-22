@@ -9,8 +9,9 @@ import {
   pageDimensions,
   paginateQuestions,
   questionMarker,
+  watermarkSettings,
 } from '../../lib/paperLayout.js';
-import { cn, dirOf, prettyDate } from '../../lib/utils.js';
+import { cn, dirOf } from '../../lib/utils.js';
 import { Markdown } from '../markdown/Markdown.jsx';
 import { MathTex } from '../markdown/MathTex.jsx';
 import { Badge, Button } from '../ui/index.js';
@@ -71,6 +72,41 @@ function withTotals(paper) {
   };
 }
 
+function durationLabel(minutes, fmt) {
+  const total = Number(minutes);
+  if (!Number.isFinite(total) || total <= 0) return '';
+  const hours = Math.floor(total / 60);
+  const mins = total % 60;
+  const parts = [];
+  if (hours > 0) parts.push(`${fmt(hours)} ঘণ্টা`);
+  if (mins > 0) parts.push(`${fmt(mins)} মিনিট`);
+  return parts.join(' ');
+}
+
+function textOr(value, fallback = '') {
+  if (value === undefined || value === null) return fallback;
+  return String(value).trim();
+}
+
+function headerValues(paper, layout, fmt) {
+  const meta = paper.meta || {};
+  const first = (paper.questions || [])[0] || {};
+  const headings = layout.headings || {};
+  const values = {
+    institute: headings.institute ? textOr(paper.institute?.name) : '',
+    class: headings.class
+      ? textOr(meta.class_name, textOr(first.class_name))
+      : '',
+    subject: headings.subject
+      ? textOr(meta.subject_name, textOr(first.subject_name))
+      : '',
+    introduction: headings.introduction ? textOr(meta.introduction) : '',
+    time: headings.time ? textOr(meta.time, durationLabel(meta.duration_minutes, fmt)) : '',
+    fullMarks: headings.fullMarks ? textOr(meta.full_marks, fmt(paper.total_marks)) : '',
+  };
+  return { ...values, hasAny: Object.values(values).some(Boolean) };
+}
+
 function OptionMarker({ marker }) {
   if (marker.circle) {
     return (
@@ -93,124 +129,119 @@ function QuestionMarker({ marker }) {
   return <span className="shrink-0 text-[13px] font-semibold text-slate-600">{marker.label}</span>;
 }
 
-function PaperHeader({
-  paper,
-  layout,
-  fmt,
-  editing,
-  onTitle,
-  onInstitute,
-  onMeta,
-}) {
+function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta }) {
   const inst = paper.institute || {};
-  const { institute, title, summary } = layout.headings;
-  if (!institute && !title && !summary) return null;
+  const meta = paper.meta || {};
+  const h = layout.headings || {};
+  if (!values.hasAny && !editing) return null;
+
+  const classValue = textOr(meta.class_name, values.class);
+  const subjectValue = textOr(meta.subject_name, values.subject);
+  const introValue = textOr(meta.introduction);
+  const timeValue = textOr(meta.time, values.time);
+  const fullMarksValue = textOr(meta.full_marks, values.fullMarks);
+  const showMarksRow =
+    (h.time || h.fullMarks) && (editing || values.time || values.fullMarks);
 
   return (
-    <>
-      {institute && (
-        <div className="border-b border-slate-300 pb-4 text-center">
-          {inst.logo_url && (
-            <img
-              src={inst.logo_url}
-              alt="প্রতিষ্ঠানের লোগো"
-              className="mx-auto mb-2 h-14 w-14 rounded object-contain"
-            />
-          )}
-          {editing ? (
-            <div className="mx-auto max-w-xl space-y-1">
-              <input
-                className={cn(EDIT_INPUT, 'text-center text-lg font-bold')}
-                value={inst.name || ''}
-                onChange={(e) => onInstitute({ name: e.target.value })}
-                placeholder="প্রতিষ্ঠানের নাম"
-              />
-              <input
-                className={cn(EDIT_INPUT, 'text-center text-sm')}
-                value={inst.location || ''}
-                onChange={(e) => onInstitute({ location: e.target.value })}
-                placeholder="অবস্থান"
-              />
-            </div>
-          ) : (
-            <>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900">
-                {inst.name || 'প্রতিষ্ঠান'}
-              </h2>
-              {inst.location && (
-                <p className="mt-0.5 text-sm text-slate-500">{inst.location}</p>
-              )}
-            </>
-          )}
-        </div>
-      )}
+    <div className="border-b border-slate-400 pb-3 text-center">
+      {h.institute &&
+        (editing ? (
+          <input
+            className={cn(EDIT_INPUT, 'text-center text-xl font-bold')}
+            value={inst.name || ''}
+            onChange={(e) => onInstitute({ name: e.target.value })}
+            placeholder="প্রতিষ্ঠানের নাম"
+          />
+        ) : values.institute ? (
+          <h2 className="text-xl font-bold tracking-tight text-slate-900">
+            {values.institute}
+          </h2>
+        ) : null)}
 
-      {(title || summary) && (
-        <div
-          className={cn(
-            'flex flex-wrap items-start justify-between gap-3',
-            institute && 'pt-4'
-          )}
-        >
-          {title && (
-            <div className="min-w-0 flex-1">
-              {editing ? (
+      {h.class &&
+        (editing ? (
+          <label className="mt-1 flex items-center justify-center gap-1 text-sm font-medium text-slate-700">
+            <span className="shrink-0">শ্রেণি:</span>
+            <input
+              className={cn(EDIT_INPUT, 'max-w-[16rem] text-center text-sm font-medium')}
+              value={classValue}
+              onChange={(e) => onMeta({ class_name: e.target.value })}
+              placeholder="দশম"
+            />
+          </label>
+        ) : values.class ? (
+          <p className="mt-0.5 text-sm font-medium text-slate-700">
+            <span className="font-semibold">শ্রেণি:</span> {values.class}
+          </p>
+        ) : null)}
+
+      {h.subject &&
+        (editing ? (
+          <label className="mt-1 flex items-center justify-center gap-1 text-sm font-medium text-slate-700">
+            <span className="shrink-0">বিষয়:</span>
+            <input
+              className={cn(EDIT_INPUT, 'max-w-[16rem] text-center text-sm font-medium')}
+              value={subjectValue}
+              onChange={(e) => onMeta({ subject_name: e.target.value })}
+              placeholder="গণিত"
+            />
+          </label>
+        ) : values.subject ? (
+          <p className="mt-0.5 text-sm font-medium text-slate-700">
+            <span className="font-semibold">বিষয়:</span> {values.subject}
+          </p>
+        ) : null)}
+
+      {h.introduction &&
+        (editing ? (
+          <input
+            className={cn(EDIT_INPUT, 'mt-1 text-center text-sm')}
+            value={introValue}
+            onChange={(e) => onMeta({ introduction: e.target.value })}
+            placeholder="পরীক্ষা বা সাজেশন লিখুন"
+          />
+        ) : values.introduction ? (
+          <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">
+            <span className="font-semibold">পরিচিতি:</span> {values.introduction}
+          </p>
+        ) : null)}
+
+      {showMarksRow && (
+        <div className="mt-1 flex items-baseline justify-between gap-4 text-sm font-semibold text-slate-800">
+          {h.time &&
+            (editing ? (
+              <label className="flex items-center gap-1">
+                <span>সময়:</span>
                 <input
-                  className={cn(EDIT_INPUT, 'text-lg font-semibold')}
-                  value={paper.title || ''}
-                  onChange={(e) => onTitle(e.target.value)}
-                  onBlur={(e) => {
-                    if (!e.target.value.trim()) onTitle('প্রশ্নপত্র');
-                  }}
-                  placeholder="প্রশ্নপত্রের শিরোনাম"
+                  className={cn(EDIT_INPUT, 'w-24')}
+                  value={timeValue}
+                  onChange={(e) => onMeta({ time: e.target.value })}
+                  placeholder="১ ঘণ্টা"
                 />
-              ) : (
-                <h3 className="text-lg font-semibold text-slate-900">{paper.title}</h3>
-              )}
-              {paper.generated_at && (
-                <p className="text-xs text-slate-500">
-                  তৈরি হয়েছে {prettyDate(paper.generated_at)}
-                </p>
-              )}
-            </div>
-          )}
-          {summary && (
-            <div className="ml-auto text-right text-sm text-slate-600">
-              <p>
-                <span className="font-semibold text-slate-900">
-                  {fmt(paper.total_questions)}
-                </span>
-                টি প্রশ্ন
-              </p>
-              <p>
-                <span className="font-semibold text-slate-900">{fmt(paper.total_marks)}</span>{' '}
-                নম্বর
-              </p>
-              {editing ? (
-                <p className="mt-1 flex items-center justify-end gap-1">
-                  <span>সময়কাল:</span>
-                  <input
-                    type="number"
-                    min="1"
-                    className={cn(EDIT_INPUT, 'w-20 text-right')}
-                    value={paper.meta?.duration_minutes ?? ''}
-                    onChange={(e) =>
-                      onMeta({
-                        duration_minutes:
-                          e.target.value === '' ? null : Number(e.target.value),
-                      })
-                    }
-                  />
-                  <span>মিনিট</span>
-                </p>
-              ) : paper.meta?.duration_minutes ? (
-                <p>সময়কাল: {fmt(paper.meta.duration_minutes)} মিনিট</p>
-              ) : null}
-            </div>
-          )}
+              </label>
+            ) : values.time ? (
+              <span>সময়: {values.time}</span>
+            ) : null)}
+          {h.fullMarks &&
+            (editing ? (
+              <label className="ml-auto flex items-center gap-1">
+                <span>পূর্ণমান:</span>
+                <input
+                  className={cn(EDIT_INPUT, 'w-20 text-right')}
+                  value={fullMarksValue}
+                  onChange={(e) => onMeta({ full_marks: e.target.value })}
+                  placeholder={fmt(paper.total_marks)}
+                />
+              </label>
+            ) : values.fullMarks ? (
+              <span className={cn(h.time && values.time ? '' : 'ml-auto')}>
+                পূর্ণমান: {values.fullMarks}
+              </span>
+            ) : null)}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -645,6 +676,7 @@ function PaperContent({
     ...DEFAULT_LAYOUT,
     ...layout,
     headings: { ...DEFAULT_LAYOUT.headings, ...(layout?.headings || {}) },
+    watermark: watermarkSettings(layout?.watermark),
   };
   const questions = paper.questions || [];
   const dims = pageDimensions(l);
@@ -654,7 +686,17 @@ function PaperContent({
   const colWidth = twoCols ? (contentWidth - COLUMN_GAP_MM) / 2 : contentWidth;
   const pageName = PAGE_SIZES[l.pageSize]?.label || 'A4';
   const orientationName = l.orientation === 'landscape' ? 'আড়াআড়ি' : 'খাড়া';
-  const headerShown = l.headings.institute || l.headings.title || l.headings.summary;
+  const fmt = (value) => formatNumber(value, l.numberFormat);
+  const header = headerValues(paper, l, fmt);
+  const headerTogglesOn = [
+    'institute',
+    'class',
+    'subject',
+    'introduction',
+    'time',
+    'fullMarks',
+  ].some((key) => l.headings[key]);
+  const headerShown = editing ? headerTogglesOn : header.hasAny;
   const answersVisible =
     typeof paper.include_answers === 'boolean'
       ? paper.include_answers
@@ -664,7 +706,10 @@ function PaperContent({
     l.headings.answerKey &&
     Array.isArray(paper.answer_key) &&
     paper.answer_key.length > 0;
-  const fmt = (value) => formatNumber(value, l.numberFormat);
+  const watermarkLogo = paper.institute?.logo_url || '';
+  const watermarkWidth = Math.min(100, Math.max(5, Number(l.watermark.size) || 55));
+  const watermarkOpacity =
+    Math.min(100, Math.max(0, Number(l.watermark.opacity) || 0)) / 100;
 
   const measureRef = useRef(null);
   const pagesKeyRef = useRef('');
@@ -727,8 +772,8 @@ function PaperContent({
     paper,
     layout: l,
     fmt,
+    values: header,
     editing,
-    onTitle: (title) => patch((prev) => ({ ...prev, title })),
     onInstitute: patchInstitute,
     onMeta: patchMeta,
   };
@@ -855,19 +900,38 @@ function PaperContent({
                 padding: `${margin}mm`,
               }}
             >
+              {watermarkLogo && l.watermark.enabled && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
+                >
+                  <img
+                    src={watermarkLogo}
+                    alt=""
+                    className="pointer-events-none select-none object-contain"
+                    style={{
+                      width: `${watermarkWidth}%`,
+                      maxHeight: '80%',
+                      opacity: watermarkOpacity,
+                      filter: l.watermark.grayscale ? 'grayscale(1)' : 'none',
+                    }}
+                  />
+                </div>
+              )}
+
               {page.header && (
-                <div className="shrink-0 pb-4">
+                <div className="relative z-10 shrink-0 pb-4">
                   <PaperHeader {...headerProps} />
                 </div>
               )}
 
               {page.answerKey ? (
-                <div className="min-h-0 flex-1">
+                <div className="relative z-10 min-h-0 flex-1">
                   <AnswerKeyBlock paper={paper} layout={l} fmt={fmt} />
                 </div>
               ) : twoCols ? (
                 <div
-                  className="grid min-h-0 flex-1"
+                  className="relative z-10 grid min-h-0 flex-1"
                   style={{
                     gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)',
                     columnGap: `${COLUMN_GAP_MM}mm`,
@@ -888,7 +952,7 @@ function PaperContent({
                   ))}
                 </div>
               ) : (
-                <div className="min-h-0 flex-1">
+                <div className="relative z-10 min-h-0 flex-1">
                   {(page.questions || []).map((questionIndex) => {
                     const q = questions[questionIndex];
                     if (!q) return null;
@@ -902,7 +966,7 @@ function PaperContent({
               )}
 
               <span
-                className="absolute left-0 right-0 text-center text-[10px] text-slate-400"
+                className="absolute left-0 right-0 z-10 text-center text-[10px] text-slate-400"
                 style={{ bottom: '2mm' }}
               >
                 {fmt(pageIndex + 1)} / {fmt(pages.length)}

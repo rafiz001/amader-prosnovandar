@@ -588,6 +588,77 @@ fn full_backup_restore_persists_on_a_file_database() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+#[test]
+fn layout_presets_are_saved_and_restored_by_full_backup() {
+    let mut conn = app();
+
+    let saved = call(
+        &mut conn,
+        "presets.save",
+        json!({
+            "name": "পরীক্ষা",
+            "layout": { "pageSize": "A3", "watermark": { "size": 30 } }
+        }),
+    );
+    let id = saved["id"].as_i64().unwrap();
+    assert_eq!(saved["name"], "পরীক্ষা");
+    assert_eq!(saved["layout"]["pageSize"], "A3");
+    assert_eq!(saved["layout"]["watermark"]["size"], 30);
+
+    let updated = call(
+        &mut conn,
+        "presets.save",
+        json!({ "name": "পরীক্ষা", "layout": { "pageSize": "A5" } }),
+    );
+    assert_eq!(updated["id"], id);
+    assert_eq!(updated["layout"]["pageSize"], "A5");
+    assert_eq!(
+        call(&mut conn, "presets.list", json!({}))
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let full = call(&mut conn, "backup.export", json!({ "scope": "full" }));
+
+    call(
+        &mut conn,
+        "presets.save",
+        json!({ "name": "অন্য", "layout": { "columns": 2 } }),
+    );
+    assert_eq!(
+        call(&mut conn, "presets.list", json!({}))
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    let restored = call(
+        &mut conn,
+        "backup.restore",
+        json!({ "data_base64": full["data_base64"], "filename": full["filename"] }),
+    );
+    assert_eq!(restored["scope"], "full");
+
+    let list = call(&mut conn, "presets.list", json!({}));
+    let items = list.as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["id"], id);
+    assert_eq!(items[0]["name"], "পরীক্ষা");
+    assert_eq!(items[0]["layout"]["pageSize"], "A5");
+
+    call(&mut conn, "presets.delete", json!({ "id": id }));
+    assert_eq!(
+        call(&mut conn, "presets.list", json!({}))
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+}
+
 fn base64_decode(text: &str) -> Vec<u8> {
     use base64::Engine;
     base64::engine::general_purpose::STANDARD

@@ -7,10 +7,10 @@ export function Brand({ compact = false }) {
       <span
         className={cn(
           'grid place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm',
-          compact ? 'h-8 w-8' : 'h-9 w-9'
+          compact ? 'h-7 w-7' : 'h-9 w-9'
         )}
       >
-        <Icon name="book" className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
+        <Icon name="book" className={compact ? 'h-3.5 w-3.5' : 'h-5 w-5'} />
       </span>
       {!compact && (
         <div className="leading-tight">

@@ -10,6 +10,7 @@ pub mod filters;
 pub mod generate;
 pub mod meta;
 pub mod models;
+pub mod presets;
 pub mod questions;
 pub mod service;
 pub mod transfer;

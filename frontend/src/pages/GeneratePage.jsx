@@ -38,7 +38,9 @@ export function GeneratePage() {
     shuffle_options: false,
     include_answers: false,
     save: true,
-    duration_minutes: '',
+    introduction: '',
+    time: '',
+    full_marks: '',
   });
 
   /* subjects for the selected class */
@@ -111,9 +113,22 @@ export function GeneratePage() {
     };
 
     if (form.class_id) payload.class_id = Number(form.class_id);
-    if (form.duration_minutes) {
-      payload.meta = { duration_minutes: Number(form.duration_minutes) };
-    }
+
+    const chosenClass = (classes || []).find(
+      (cls) => String(cls.id) === String(form.class_id)
+    );
+    const chosenSubject = (classSubjects || []).find(
+      (subject) => String(subject.id) === String(form.subject_id)
+    );
+    const meta = {};
+    const className = chosenClass?.name || selected[0]?.class_name;
+    const subjectName = chosenSubject?.name || selected[0]?.subject_name;
+    if (className) meta.class_name = className;
+    if (subjectName) meta.subject_name = subjectName;
+    if (form.introduction.trim()) meta.introduction = form.introduction.trim();
+    if (form.time.trim()) meta.time = form.time.trim();
+    if (form.full_marks.trim()) meta.full_marks = form.full_marks.trim();
+    if (Object.keys(meta).length) payload.meta = meta;
 
     setGenerating(true);
     try {
@@ -149,8 +164,12 @@ export function GeneratePage() {
               backLabel="ফর্মে ফিরে যান"
             />
           </div>
-          <aside className="sticky top-20 z-10 self-start max-h-[calc(100vh-6rem)] overflow-y-auto print:hidden">
-            <PaperLayoutPanel layout={layout} onChange={updateLayout} />
+          <aside className="sticky top-14 z-10 self-start max-h-[calc(100vh-4rem)] overflow-y-auto print:hidden">
+            <PaperLayoutPanel
+              layout={layout}
+              onChange={updateLayout}
+              hasLogo={!!result?.institute?.logo_url}
+            />
           </aside>
         </div>
       </>
@@ -234,13 +253,25 @@ export function GeneratePage() {
                     {label}
                   </label>
                 ))}
-                <Field label="সময়কাল (মিনিট)" className="sm:col-span-2">
+                <Field label="পরিচিতি" className="sm:col-span-2">
                   <Input
-                    type="number"
-                    min="1"
-                    value={form.duration_minutes}
-                    onChange={set('duration_minutes')}
-                    placeholder="৯০"
+                    value={form.introduction}
+                    onChange={set('introduction')}
+                    placeholder="পরীক্ষা বা সাজেশন লিখুন"
+                  />
+                </Field>
+                <Field label="সময়">
+                  <Input
+                    value={form.time}
+                    onChange={set('time')}
+                    placeholder="১ ঘণ্টা"
+                  />
+                </Field>
+                <Field label="পূর্ণমান">
+                  <Input
+                    value={form.full_marks}
+                    onChange={set('full_marks')}
+                    placeholder="স্বয়ংক্রিয় (মোট নম্বর)"
                   />
                 </Field>
               </div>
@@ -265,7 +296,7 @@ export function GeneratePage() {
           </div>
 
           <aside
-            className="order-first self-start print:hidden xl:order-last xl:sticky xl:top-20"
+            className="order-first self-start print:hidden xl:order-last xl:sticky xl:top-14"
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.preventDefault();
             }}

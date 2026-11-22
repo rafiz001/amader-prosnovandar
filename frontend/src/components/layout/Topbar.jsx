@@ -3,22 +3,22 @@ import { Breadcrumbs } from './Breadcrumbs.jsx';
 
 export function Topbar({ stack, onGoto, onOpenSidebar, canGoBack, onBack }) {
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6 print:hidden">
+    <header className="sticky top-0 z-20 flex h-11 items-center gap-2 border-b border-slate-200 bg-white/85 px-2 backdrop-blur sm:px-3 print:hidden">
       <button
         onClick={onOpenSidebar}
-        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 lg:hidden"
+        className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 lg:hidden"
         aria-label="মেনু খুলুন"
       >
-        <Icon name="menu" className="h-5 w-5" />
+        <Icon name="menu" className="h-4 w-4" />
       </button>
 
       {canGoBack && (
         <button
           onClick={onBack}
-          className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
+          className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100"
           aria-label="পেছনে"
         >
-          <Icon name="arrowLeft" className="h-5 w-5" />
+          <Icon name="arrowLeft" className="h-4 w-4" />
         </button>
       )}
 
