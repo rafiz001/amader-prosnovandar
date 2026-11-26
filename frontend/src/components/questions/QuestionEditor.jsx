@@ -3,10 +3,14 @@ import { useToast } from '../../context/ToastContext.jsx';
 import { useResource } from '../../hooks/useResource.js';
 import { API } from '../../lib/api.js';
 import { DIFFICULTIES, KIND_LABEL, LANG_LABEL } from '../../lib/constants.js';
-import { cn, optionLetter } from '../../lib/utils.js';
+import { ALIGN_OPTIONS } from '../../lib/paperLayout.js';
+import { bnNum, cn, optionLetter } from '../../lib/utils.js';
 import { Icon } from '../Icon.jsx';
 import { MarkdownEditor } from '../markdown/MarkdownEditor.jsx';
 import { Button, Field, Input, LoadingBlock, Modal, Select } from '../ui/index.js';
+
+const clampScale = (value) =>
+  Math.min(3, Math.max(0.5, Math.round((Number(value) || 1) * 100) / 100));
 
 export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
   const toast = useToast();
@@ -32,6 +36,8 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
     marks: 1,
     difficulty: 'medium',
     lang: 'bn',
+    font_scale: 1,
+    align: '',
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -64,6 +70,8 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
       marks: existing.marks ?? 1,
       difficulty: existing.difficulty || 'medium',
       lang: existing.lang || 'bn',
+      font_scale: Number(existing.font_scale) || 1,
+      align: existing.align || '',
     });
     setRemoveImage(false);
     setImageFile(null);
@@ -150,6 +158,8 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
       marks: Number.isFinite(marks) && marks >= 0 ? marks : 1,
       difficulty: form.difficulty,
       lang: form.lang,
+      font_scale: Number(form.font_scale) || 1,
+      align: form.align || '',
     };
     if (kind === 'mcq') {
       payload.options = form.options;
@@ -172,6 +182,8 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
     fd.append('marks', String(form.marks));
     fd.append('difficulty', form.difficulty);
     fd.append('lang', form.lang);
+    fd.append('font_scale', String(Number(form.font_scale) || 1));
+    fd.append('align', form.align || '');
 
     if (kind === 'mcq') {
       form.options.forEach((o, i) => fd.append(`option_${i + 1}`, o));
@@ -463,6 +475,62 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                 {Object.entries(LANG_LABEL).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          {/* Typography */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="লেখার আকার"
+              hint={`এই প্রশ্নের লেখা ${bnNum(
+                Math.round((Number(form.font_scale) || 1) * 100)
+              )}%`}
+            >
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      font_scale: clampScale((Number(f.font_scale) || 1) - 0.05),
+                    }))
+                  }
+                  aria-label="লেখার আকার কমান"
+                >
+                  −
+                </Button>
+                <span className="min-w-[3.5rem] text-center text-sm font-semibold text-slate-700">
+                  {bnNum(Math.round((Number(form.font_scale) || 1) * 100))}%
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      font_scale: clampScale((Number(f.font_scale) || 1) + 0.05),
+                    }))
+                  }
+                  aria-label="লেখার আকার বাড়ান"
+                >
+                  +
+                </Button>
+              </div>
+            </Field>
+            <Field label="সারিবদ্ধতা" hint="প্রশ্নপত্রে এই প্রশ্নের লেখা কীভাবে সাজানো হবে">
+              <Select
+                value={form.align || ''}
+                onChange={(e) => setForm((f) => ({ ...f, align: e.target.value }))}
+              >
+                {ALIGN_OPTIONS.map((option) => (
+                  <option key={option.value || 'auto'} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </Select>

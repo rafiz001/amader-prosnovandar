@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import katex from 'katex';
 import { cn } from '../../lib/utils.js';
 
-export function MathTex({ tex, display = false, className }) {
+export function MathTex({ tex, display = false, className, style }) {
   const html = useMemo(() => {
     let source = String(tex ?? '').trim();
     if (source.startsWith('$$') && source.endsWith('$$')) {
@@ -27,6 +27,7 @@ export function MathTex({ tex, display = false, className }) {
 
   return (
     <span
+      style={style}
       className={cn(
         display ? 'block overflow-x-auto overflow-y-hidden py-1 text-center' : 'inline-block align-middle',
         className

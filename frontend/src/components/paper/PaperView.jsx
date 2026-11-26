@@ -4,6 +4,7 @@ import { API } from '../../lib/api.js';
 import {
   DEFAULT_LAYOUT,
   PAGE_SIZES,
+  QUESTION_ALIGN_OPTIONS,
   formatNumber,
   optionMarker,
   pageDimensions,
@@ -11,15 +12,26 @@ import {
   questionMarker,
   watermarkSettings,
 } from '../../lib/paperLayout.js';
-import { cn, dirOf } from '../../lib/utils.js';
+import { bnNum, cn, dirOf } from '../../lib/utils.js';
 import { Markdown } from '../markdown/Markdown.jsx';
 import { MathTex } from '../markdown/MathTex.jsx';
 import { Badge, Button } from '../ui/index.js';
+import { Icon } from '../Icon.jsx';
+import { AddQuestionsModal } from './AddQuestionsModal.jsx';
 
 const MM_TO_PX = 96 / 25.4;
 const COLUMN_GAP_MM = 8;
 const PAGE_SLACK_PX = 2;
 const MAX_IMAGE = 5 * 1024 * 1024;
+
+const PER_QUESTION_ALIGNS = [
+  { value: '', label: 'অটো' },
+  ...QUESTION_ALIGN_OPTIONS,
+];
+
+function clampScale(value) {
+  return Math.min(3, Math.max(0.5, Math.round(value * 100) / 100));
+}
 
 const EDIT_INPUT =
   'w-full rounded-md border border-indigo-200 bg-white px-2 py-1 text-[13px] leading-relaxed text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100';
@@ -142,6 +154,9 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
   const fullMarksValue = textOr(meta.full_marks, values.fullMarks);
   const showMarksRow =
     (h.time || h.fullMarks) && (editing || values.time || values.fullMarks);
+  const headerScale = Number(layout.fontScale) || 1;
+  const titlePx = Math.round(20 * headerScale * 100) / 100;
+  const bodyPx = Math.round(14 * headerScale * 100) / 100;
 
   return (
     <div className="border-b border-slate-400 pb-3 text-center">
@@ -154,9 +169,32 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
             placeholder="প্রতিষ্ঠানের নাম"
           />
         ) : values.institute ? (
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">
+          <h2
+            className="text-xl font-bold tracking-tight text-slate-900"
+            style={{ fontSize: titlePx }}
+          >
             {values.institute}
           </h2>
+        ) : null)}
+
+      {h.introduction &&
+        (editing ? (
+          <div className="mt-1 flex w-full items-center gap-1 text-left text-sm text-slate-700">
+            <span className="shrink-0 font-semibold">পরিচিতি:</span>
+            <input
+              className={cn(EDIT_INPUT, 'min-w-0 flex-1 text-left')}
+              value={introValue}
+              onChange={(e) => onMeta({ introduction: e.target.value })}
+              placeholder="পরীক্ষা বা সাজেশন লিখুন"
+            />
+          </div>
+        ) : values.introduction ? (
+          <p
+            className="mt-0.5 w-full whitespace-pre-wrap text-left text-slate-700"
+            style={{ fontSize: bodyPx }}
+          >
+            <span className="font-semibold">পরিচিতি:</span> {values.introduction}
+          </p>
         ) : null)}
 
       {h.class &&
@@ -171,7 +209,7 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
             />
           </label>
         ) : values.class ? (
-          <p className="mt-0.5 text-sm font-medium text-slate-700">
+          <p className="mt-0.5 font-medium text-slate-700" style={{ fontSize: bodyPx }}>
             <span className="font-semibold">শ্রেণি:</span> {values.class}
           </p>
         ) : null)}
@@ -188,27 +226,16 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
             />
           </label>
         ) : values.subject ? (
-          <p className="mt-0.5 text-sm font-medium text-slate-700">
+          <p className="mt-0.5 font-medium text-slate-700" style={{ fontSize: bodyPx }}>
             <span className="font-semibold">বিষয়:</span> {values.subject}
           </p>
         ) : null)}
 
-      {h.introduction &&
-        (editing ? (
-          <input
-            className={cn(EDIT_INPUT, 'mt-1 text-center text-sm')}
-            value={introValue}
-            onChange={(e) => onMeta({ introduction: e.target.value })}
-            placeholder="পরীক্ষা বা সাজেশন লিখুন"
-          />
-        ) : values.introduction ? (
-          <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">
-            <span className="font-semibold">পরিচিতি:</span> {values.introduction}
-          </p>
-        ) : null)}
-
       {showMarksRow && (
-        <div className="mt-1 flex items-baseline justify-between gap-4 text-sm font-semibold text-slate-800">
+        <div
+          className="mt-1 flex items-baseline justify-between gap-4 font-semibold text-slate-800"
+          style={{ fontSize: bodyPx }}
+        >
           {h.time &&
             (editing ? (
               <label className="flex items-center gap-1">
@@ -253,9 +280,18 @@ function QuestionBlock({
   showAnswers,
   onChange,
   onImage,
+  onRemove,
 }) {
   const dir = q.dir || dirOf(q.lang);
   const narrow = layout.columns === 2 || layout.pageSize === 'A5';
+  const scale = (Number(layout.fontScale) || 1) * (Number(q.font_scale) || 1);
+  const fontPx = Math.round(13 * scale * 100) / 100;
+  const optionPx = Math.round(fontPx * 0.95 * 100) / 100;
+  const smallPx = Math.round(fontPx * 0.86 * 100) / 100;
+  const align = q.align || layout.align || '';
+  const textAlign = align || undefined;
+  const questionScale = Number(q.font_scale) || 1;
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   return (
     <div className="flex gap-2">
@@ -266,9 +302,89 @@ function QuestionBlock({
           layout.numberFormat
         )}
       />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1" style={{ textAlign }}>
         {editing ? (
           <div className="space-y-2 rounded-lg border border-indigo-100 bg-indigo-50/30 p-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/70 px-2 py-1.5">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <span className={EDIT_LABEL}>আকার</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onChange({ font_scale: clampScale(questionScale - 0.05) })
+                    }
+                    className="grid h-6 w-6 place-items-center rounded border border-indigo-200 bg-white text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
+                    aria-label="এই প্রশ্নের লেখা ছোট করুন"
+                  >
+                    −
+                  </button>
+                  <span className="w-11 text-center text-xs font-semibold text-slate-700">
+                    {bnNum(Math.round(questionScale * 100))}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onChange({ font_scale: clampScale(questionScale + 0.05) })
+                    }
+                    className="grid h-6 w-6 place-items-center rounded border border-indigo-200 bg-white text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
+                    aria-label="এই প্রশ্নের লেখা বড় করুন"
+                  >
+                    +
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className={EDIT_LABEL}>সাজানো</span>
+                  {PER_QUESTION_ALIGNS.map((option) => (
+                    <button
+                      key={option.value || 'auto'}
+                      type="button"
+                      onClick={() => onChange({ align: option.value })}
+                      className={cn(
+                        'rounded border px-1.5 py-0.5 text-[10px] font-medium transition',
+                        (q.align || '') === option.value
+                          ? 'border-indigo-400 bg-indigo-100 text-indigo-800'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {onRemove &&
+                (confirmRemove ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span className="text-[10px] font-medium text-rose-600">
+                      সরিয়ে ফেলবেন?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={onRemove}
+                      className="rounded-md border border-rose-300 bg-rose-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-rose-700"
+                    >
+                      হ্যাঁ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmRemove(false)}
+                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      বাতিল
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRemove(true)}
+                    className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-[10px] font-medium text-rose-600 hover:bg-rose-50"
+                  >
+                    <Icon name="trash" className="h-3.5 w-3.5" />
+                    প্রশ্ন সরান
+                  </button>
+                ))}
+            </div>
+
             <EditField label="প্রশ্নের লেখা · মার্কডাউন">
               <textarea
                 rows={3}
@@ -438,8 +554,9 @@ function QuestionBlock({
             {q.text && (
               <Markdown
                 dir={dir}
+                style={{ fontSize: fontPx, textAlign }}
                 className={cn(
-                  'text-[13px] leading-relaxed text-slate-800',
+                  'leading-relaxed text-slate-800',
                   dir === 'rtl' ? 'rtl-text' : 'ltr-text'
                 )}
               >
@@ -447,7 +564,12 @@ function QuestionBlock({
               </Markdown>
             )}
             {q.math && (
-              <MathTex tex={q.math} display className="mt-1 text-sm text-slate-700" />
+              <MathTex
+                tex={q.math}
+                display
+                style={{ fontSize: fontPx }}
+                className="mt-1 text-slate-700"
+              />
             )}
             {q.image_url && (
               <img
@@ -460,16 +582,22 @@ function QuestionBlock({
             {q.options && q.options.length > 0 && (
               <ol
                 className={cn(
-                  'mt-1.5 grid gap-1 text-[13px] text-slate-700',
+                  'mt-1.5 grid gap-1 text-slate-700',
                   narrow ? 'grid-cols-1' : 'grid-cols-2'
                 )}
+                style={{ fontSize: optionPx }}
               >
                 {q.options.map((opt, i) => (
                   <li key={i} className="flex items-start gap-1.5">
                     <OptionMarker
                       marker={optionMarker(i, layout.markerStyle, layout.numberFormat)}
                     />
-                    <Markdown inline dir={dir} className="text-[13px] text-slate-700">
+                    <Markdown
+                      inline
+                      dir={dir}
+                      style={{ fontSize: optionPx, textAlign }}
+                      className="text-slate-700"
+                    >
                       {opt}
                     </Markdown>
                   </li>
@@ -478,15 +606,24 @@ function QuestionBlock({
             )}
 
             {showAnswers && q.answer != null && q.kind !== 'mcq' && (
-              <div className="mt-1 text-xs font-medium text-emerald-700">
+              <div className="mt-1 font-medium text-emerald-700" style={{ fontSize: smallPx }}>
                 উত্তর:{' '}
-                <Markdown inline dir={dir} className="text-xs font-medium text-emerald-700">
+                <Markdown
+                  inline
+                  dir={dir}
+                  style={{ fontSize: smallPx, textAlign }}
+                  className="font-medium text-emerald-700"
+                >
                   {String(q.answer)}
                 </Markdown>
               </div>
             )}
             {showAnswers && q.description && (
-              <Markdown dir={dir} className="mt-1 text-xs text-slate-500">
+              <Markdown
+                dir={dir}
+                style={{ fontSize: smallPx, textAlign }}
+                className="mt-1 text-slate-500"
+              >
                 {q.description}
               </Markdown>
             )}
@@ -500,15 +637,17 @@ function QuestionBlock({
 function AnswerKeyBlock({ paper, layout, fmt }) {
   const entries = paper.answer_key || [];
   if (!entries.length) return null;
+  const fontPx = Math.round(13 * (Number(layout.fontScale) || 1) * 100) / 100;
 
   return (
     <div className="rounded-lg border border-slate-300 p-3">
       <h4 className="mb-1.5 text-sm font-semibold text-slate-800">উত্তরমালা</h4>
       <div
         className={cn(
-          'grid gap-1 text-[13px] text-slate-700',
+          'grid gap-1 text-slate-700',
           layout.pageSize === 'A5' ? 'grid-cols-2' : 'grid-cols-4'
         )}
+        style={{ fontSize: fontPx }}
       >
         {entries.map((a) => {
           const marker = a.correct_option
@@ -522,7 +661,7 @@ function AnswerKeyBlock({ paper, layout, fmt }) {
             <p key={a.number}>
               <span className="font-semibold">{fmt(a.number)}.</span>{' '}
               {a.answer != null && (
-                <Markdown inline className="text-[13px] text-slate-700">
+                <Markdown inline style={{ fontSize: fontPx }} className="text-slate-700">
                   {String(a.answer)}
                 </Markdown>
               )}
@@ -556,14 +695,64 @@ function PaperContent({
   const latestRef = useRef(initialPaper);
   const dirtyRef = useRef(false);
   const timerRef = useRef(null);
+  const syncToBankRef = useRef(false);
+  const editedFieldsRef = useRef(new Map());
+  const [syncToBank, setSyncToBank] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     setPaper(initialPaper);
     latestRef.current = initialPaper;
     dirtyRef.current = false;
+    editedFieldsRef.current = new Map();
     setSaveState('idle');
     // Only reload when a different paper arrives.
   }, [initialPaper?.id, initialPaper?.generated_at]);
+
+  const syncQuestionsToBank = async (current) => {
+    const entries = [...editedFieldsRef.current.entries()];
+    if (!entries.length) return;
+    editedFieldsRef.current = new Map();
+    const byId = new Map(
+      (current?.questions || []).map((question) => [question.id, question])
+    );
+    for (const [id, fields] of entries) {
+      const question = byId.get(id);
+      if (!question || question.id == null) continue;
+      const payload = {};
+      for (const key of fields) {
+        if (['image_url', 'number', 'id', 'kind', 'type', 'dir'].includes(key)) continue;
+        if (key === 'text' || key === 'math') payload[key] = question[key] || '';
+        else if (key === 'description') payload[key] = question.description ?? '';
+        else if (key === 'answer') {
+          payload.answer = question.answer == null ? '' : String(question.answer);
+        } else if (key === 'marks') payload.marks = Number(question.marks) || 0;
+        else payload[key] = question[key];
+      }
+      if (question.kind === 'mcq' && (fields.has('options') || fields.has('correct_option'))) {
+        if (!Array.isArray(question.options) || question.options.length !== 4) continue;
+        if (!question.correct_option) continue;
+        payload.options = question.options;
+        payload.correct_option = question.correct_option;
+      }
+      if (fields.has('image_url')) {
+        if (question.image_url && question.image_url.startsWith('data:')) {
+          payload.image = {
+            data_base64: question.image_url.slice(question.image_url.indexOf(',') + 1),
+            filename: '',
+          };
+        } else if (question.image_url == null) {
+          payload.remove_image = true;
+        }
+      }
+      if (Object.keys(payload).length === 0) continue;
+      try {
+        await API.questions.update(id, payload);
+      } catch (error) {
+        toast.error(error.message);
+      }
+    }
+  };
 
   const saveNow = async () => {
     if (timerRef.current) {
@@ -580,6 +769,9 @@ function PaperContent({
     setSaveState('saving');
     try {
       await API.papers.update(current.id, current);
+      if (syncToBankRef.current) {
+        await syncQuestionsToBank(current);
+      }
       setSaveState('saved');
     } catch (error) {
       dirtyRef.current = true;
@@ -630,6 +822,12 @@ function PaperContent({
     patch((prev) => ({ ...prev, meta: { ...(prev.meta || {}), ...changes } }));
   const patchQuestion = (index, changes) =>
     patch((prev) => {
+      const target = (prev.questions || [])[index];
+      if (target?.id != null) {
+        const fields = editedFieldsRef.current.get(target.id) || new Set();
+        Object.keys(changes).forEach((key) => fields.add(key));
+        editedFieldsRef.current.set(target.id, fields);
+      }
       const questions = (prev.questions || []).map((q, i) => {
         if (i !== index) return q;
         const next = { ...q, ...changes };
@@ -660,6 +858,29 @@ function PaperContent({
       toast.error('ছবি পড়া যায়নি');
     }
   };
+
+  const insertQuestions = (items) => {
+    if (!items || !items.length) {
+      setAddOpen(false);
+      return;
+    }
+    patch((prev) => {
+      const existing = new Set((prev.questions || []).map((question) => question.id));
+      const fresh = items.filter((question) => !existing.has(question.id));
+      if (!fresh.length) return prev;
+      return withTotals({
+        ...prev,
+        questions: [...(prev.questions || []), ...fresh],
+      });
+    });
+    setAddOpen(false);
+  };
+
+  const removeQuestion = (index) =>
+    patch((prev) => {
+      const questions = (prev.questions || []).filter((_, i) => i !== index);
+      return withTotals({ ...prev, questions });
+    });
 
   const finishEditing = async () => {
     await saveNow();
@@ -707,9 +928,17 @@ function PaperContent({
     Array.isArray(paper.answer_key) &&
     paper.answer_key.length > 0;
   const watermarkLogo = paper.institute?.logo_url || '';
+  const watermarkImage = l.watermark.image || '';
+  const watermarkMode = l.watermark.mode;
   const watermarkWidth = Math.min(100, Math.max(5, Number(l.watermark.size) || 55));
   const watermarkOpacity =
     Math.min(100, Math.max(0, Number(l.watermark.opacity) || 0)) / 100;
+  const questionGapMm = Math.min(20, Math.max(0, Number(l.questionGap) || 0));
+  const questionGapStyle = { paddingBottom: `${questionGapMm}mm` };
+  const subjectId = paper.meta?.subject_id ?? questions[0]?.subject_id ?? '';
+  const lockedIds = new Set(
+    questions.map((question) => question.id).filter((id) => id != null)
+  );
 
   const measureRef = useRef(null);
   const pagesKeyRef = useRef('');
@@ -785,6 +1014,7 @@ function PaperContent({
     showAnswers: answersVisible,
     onChange: (changes) => patchQuestion(index, changes),
     onImage: (file) => patchImage(index, file),
+    onRemove: () => removeQuestion(index),
   });
 
   return (
@@ -813,8 +1043,7 @@ function PaperContent({
           <div
             key={`m-${q.id ?? index}`}
             data-measure="q"
-            className="pb-4"
-            style={{ width: `${colWidth}mm` }}
+            style={{ width: `${colWidth}mm`, ...questionGapStyle }}
           >
             <QuestionBlock {...questionProps(q, index)} />
           </div>
@@ -861,6 +1090,32 @@ function PaperContent({
           </label>
 
           <Button
+            variant="secondary"
+            size="sm"
+            icon="plus"
+            onClick={() => setAddOpen(true)}
+            disabled={!subjectId}
+            title={subjectId ? 'আরও প্রশ্ন যোগ করুন' : 'এই প্রশ্নপত্রের বিষয় পাওয়া যায়নি'}
+          >
+            প্রশ্ন যোগ করুন
+          </Button>
+
+          {editing && paper.id && (
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800">
+              <input
+                type="checkbox"
+                checked={syncToBank}
+                onChange={(e) => {
+                  setSyncToBank(e.target.checked);
+                  syncToBankRef.current = e.target.checked;
+                }}
+                className="h-3.5 w-3.5 accent-emerald-600"
+              />
+              প্রশ্নব্যাংকেও হালনাগাদ করুন
+            </label>
+          )}
+
+          <Button
             variant={editing ? 'primary' : 'secondary'}
             size="sm"
             icon={editing ? 'check' : 'pencil'}
@@ -882,6 +1137,8 @@ function PaperContent({
       {editing && (
         <p className="rounded-lg bg-indigo-50 px-3 py-2 text-xs text-indigo-700 print:hidden">
           প্রিভিউতে সরাসরি সম্পাদনা করুন — পরিবর্তনগুলো স্বয়ংক্রিয়ভাবে সংরক্ষিত হয়।
+          “প্রশ্নব্যাংকেও হালনাগাদ করুন” চালু থাকলে সম্পাদিত প্রশ্ন মূল প্রশ্নব্যাংকেও
+          সংরক্ষিত হবে; বন্ধ থাকলে শুধু এই প্রশ্নপত্রে পরিবর্তন থাকবে।
         </p>
       )}
 
@@ -900,22 +1157,51 @@ function PaperContent({
                 padding: `${margin}mm`,
               }}
             >
-              {watermarkLogo && l.watermark.enabled && (
+              {watermarkMode !== 'none' && (
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
+                  className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden"
                 >
-                  <img
-                    src={watermarkLogo}
-                    alt=""
-                    className="pointer-events-none select-none object-contain"
-                    style={{
-                      width: `${watermarkWidth}%`,
-                      maxHeight: '80%',
-                      opacity: watermarkOpacity,
-                      filter: l.watermark.grayscale ? 'grayscale(1)' : 'none',
-                    }}
-                  />
+                  {watermarkMode === 'logo' && watermarkLogo && (
+                    <img
+                      src={watermarkLogo}
+                      alt=""
+                      className="pointer-events-none select-none object-contain"
+                      style={{
+                        width: `${watermarkWidth}%`,
+                        maxHeight: '80%',
+                        opacity: watermarkOpacity,
+                        filter: l.watermark.grayscale ? 'grayscale(1)' : 'none',
+                      }}
+                    />
+                  )}
+                  {watermarkMode === 'image' && watermarkImage && (
+                    <img
+                      src={watermarkImage}
+                      alt=""
+                      className="pointer-events-none select-none object-contain"
+                      style={{
+                        width: `${watermarkWidth}%`,
+                        maxHeight: '80%',
+                        opacity: watermarkOpacity,
+                        filter: l.watermark.grayscale ? 'grayscale(1)' : 'none',
+                      }}
+                    />
+                  )}
+                  {watermarkMode === 'text' && l.watermark.text && (
+                    <span
+                      className="pointer-events-none select-none whitespace-nowrap font-bold"
+                      style={{
+                        transform: `rotate(${Number(l.watermark.angle) || 0}deg)`,
+                        fontSize: `${Number(l.watermark.textSize) || 96}px`,
+                        color: l.watermark.color,
+                        opacity: watermarkOpacity,
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {l.watermark.text}
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -943,7 +1229,7 @@ function PaperContent({
                         const q = questions[questionIndex];
                         if (!q) return null;
                         return (
-                          <div key={questionIndex} className="pb-4">
+                          <div key={q.id ?? questionIndex} style={questionGapStyle}>
                             <QuestionBlock {...questionProps(q, questionIndex)} />
                           </div>
                         );
@@ -957,7 +1243,7 @@ function PaperContent({
                     const q = questions[questionIndex];
                     if (!q) return null;
                     return (
-                      <div key={questionIndex} className="pb-4">
+                      <div key={q.id ?? questionIndex} style={questionGapStyle}>
                         <QuestionBlock {...questionProps(q, questionIndex)} />
                       </div>
                     );
@@ -975,6 +1261,15 @@ function PaperContent({
           ))}
         </div>
       </div>
+
+      {addOpen && (
+        <AddQuestionsModal
+          subjectId={subjectId}
+          lockedIds={lockedIds}
+          onClose={() => setAddOpen(false)}
+          onAdd={insertQuestions}
+        />
+      )}
     </div>
   );
 }

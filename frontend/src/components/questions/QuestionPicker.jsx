@@ -41,9 +41,71 @@ export function QuestionPicker({
   filters,
   page,
   onPageChange,
+  lockedIds = new Set(),
 }) {
   const toast = useToast();
   const [selectingAll, setSelectingAll] = useState(false);
+
+  const { data: chapterList } = useResource(
+    () => API.chapters.list(subjectId),
+    [subjectId],
+    { skip: !subjectId }
+  );
+  const { data: typeList } = useResource(
+    () => API.types.list(subjectId),
+    [subjectId],
+    { skip: !subjectId }
+  );
+
+  const category = (() => {
+    if (filters.chapter_id) {
+      const name =
+        filters.chapter_id === 'none'
+          ? 'কোনো অধ্যায় নেই'
+          : (chapterList || []).find(
+              (chapter) => String(chapter.id) === String(filters.chapter_id)
+            )?.name;
+      return {
+        field: 'chapter_id',
+        value: filters.chapter_id,
+        name: name || 'অধ্যায়',
+      };
+    }
+    if (filters.type_id) {
+      const name = (typeList || []).find(
+        (type) => String(type.id) === String(filters.type_id)
+      )?.name;
+      return { field: 'type_id', value: filters.type_id, name: name || 'ধরন' };
+    }
+    return null;
+  })();
+  const categoryField = category?.field;
+  const categoryValue = category?.value;
+
+  const { data: categoryTotal } = useResource(
+    () =>
+      categoryField
+        ? API.questions.list(subjectId, {
+            [categoryField]: categoryValue,
+            limit: 1,
+          }).then((res) => res.total)
+        : Promise.resolve(0),
+    [subjectId, categoryField, categoryValue],
+    { skip: !subjectId || !categoryField }
+  );
+
+  const inCategory = (question) => {
+    if (!category) return false;
+    if (category.field === 'chapter_id') {
+      return category.value === 'none'
+        ? question.chapter_id == null
+        : String(question.chapter_id) === String(category.value);
+    }
+    return String(question.type_id) === String(category.value);
+  };
+  const selectedInCategory = category
+    ? selected.filter(inCategory).length
+    : 0;
 
   const { data, loading, error, reload } = useResource(
     () => API.questions.list(subjectId, { ...filters, ...page }),
@@ -89,7 +151,7 @@ export function QuestionPicker({
         if (!batch.length) break;
         offset += batch.length;
       } while (offset < allTotal);
-      onSelectAll?.(all);
+      onSelectAll?.(all.filter((q) => !lockedIds.has(q.id)));
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -140,6 +202,12 @@ export function QuestionPicker({
             <p className="text-xs text-indigo-600">
               নির্বাচন বা বাতিল করতে প্রশ্নে ক্লিক করুন
             </p>
+            {category && (
+              <p className="mt-0.5 text-xs font-semibold text-indigo-800">
+                এই “{category.name}” সিলেক্ট হয়েছে {bnNum(selectedInCategory)}/
+                {bnNum(categoryTotal || 0)} টি
+              </p>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -189,6 +257,7 @@ export function QuestionPicker({
               key={q.id}
               q={q}
               selected={selectedIds.has(q.id)}
+              locked={lockedIds.has(q.id)}
               onToggle={onToggle}
             />
           ))}

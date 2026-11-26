@@ -68,9 +68,13 @@ pub struct QInput {
     pub lang: String,
     pub difficulty: String,
     pub marks: f64,
+    pub font_scale: f64,
+    pub align: String,
     pub options: [String; 4],
     pub correct: Option<i64>,
 }
+
+pub const ALIGNS: [&str; 4] = ["left", "right", "center", "justify"];
 
 pub fn normalize_question(f: &crate::util::Fields, t: &QType, has_image: bool) -> Result<QInput> {
     let difficulty = f.str_def("difficulty", "medium").to_lowercase();
@@ -98,6 +102,23 @@ pub fn normalize_question(f: &crate::util::Fields, t: &QType, has_image: bool) -
         }
     }
 
+    let mut font_scale = 1.0;
+    if let Some(v) = f.get("font_scale") {
+        if !v.is_null() && !crate::util::to_str(v).is_empty() {
+            match crate::util::to_float(v) {
+                Some(s) if s.is_finite() && s > 0.0 => font_scale = s.clamp(0.5, 3.0),
+                _ => return Err(http_err(400, "font_scale must be a positive number")),
+            }
+        }
+    }
+    let align = f.str("align").to_lowercase();
+    if !align.is_empty() && !crate::util::contains(&ALIGNS, &align) {
+        return Err(http_err(
+            400,
+            format!("align must be empty or one of: {}", ALIGNS.join(", ")),
+        ));
+    }
+
     let text = f.str("text");
     let math = f.str("math");
     let description = f.str("description");
@@ -119,6 +140,8 @@ pub fn normalize_question(f: &crate::util::Fields, t: &QType, has_image: bool) -
         lang,
         difficulty,
         marks,
+        font_scale,
+        align,
         options: Default::default(),
         correct: None,
     };
@@ -195,6 +218,8 @@ pub struct QuestionRow {
     pub marks: f64,
     pub difficulty: String,
     pub lang: String,
+    pub font_scale: f64,
+    pub align: String,
     pub joined: bool,
     pub subject_name: String,
     pub class_id: i64,
@@ -204,7 +229,7 @@ pub struct QuestionRow {
 const Q_SELECT: &str =
     "SELECT q.id, q.subject_id, q.type_id, t.name, t.kind, q.chapter_id, ch.name,
     q.text, q.math, q.image_id, q.option_1, q.option_2, q.option_3, q.option_4, q.correct_option,
-    q.answer, q.description, q.marks, q.difficulty, q.lang";
+    q.answer, q.description, q.marks, q.difficulty, q.lang, q.font_scale, q.align";
 const Q_FROM: &str = " FROM questions q JOIN question_types t ON t.id = q.type_id LEFT JOIN chapters ch ON ch.id = q.chapter_id";
 const Q_SCOPE_SELECT: &str = ", s.name, c.id, c.name";
 const Q_SCOPE_FROM: &str =
@@ -250,10 +275,12 @@ pub fn query_questions(
             marks: row.get(17)?,
             difficulty: row.get(18)?,
             lang: row.get(19)?,
+            font_scale: row.get(20)?,
+            align: row.get(21)?,
             joined: scope,
-            subject_name: if scope { row.get(20)? } else { String::new() },
-            class_id: if scope { row.get(21)? } else { 0 },
-            class_name: if scope { row.get(22)? } else { String::new() },
+            subject_name: if scope { row.get(22)? } else { String::new() },
+            class_id: if scope { row.get(23)? } else { 0 },
+            class_name: if scope { row.get(24)? } else { String::new() },
         })
     })?;
 
@@ -312,12 +339,14 @@ pub fn insert_question(
         SqlValue::Real(n.marks),
         SqlValue::Text(n.difficulty.clone()),
         SqlValue::Text(n.lang.clone()),
+        SqlValue::Real(n.font_scale),
+        SqlValue::Text(n.align.clone()),
     ];
     conn.execute(
         "INSERT INTO questions
         (subject_id, chapter_id, type_id, text, math, image_id, option_1, option_2, option_3, option_4,
-         correct_option, answer, description, marks, difficulty, lang)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+         correct_option, answer, description, marks, difficulty, lang, font_scale, align)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         params_from_iter(args.iter()),
     )?;
     Ok(conn.last_insert_rowid())
@@ -347,12 +376,14 @@ pub fn update_question(
         SqlValue::Real(n.marks),
         SqlValue::Text(n.difficulty.clone()),
         SqlValue::Text(n.lang.clone()),
+        SqlValue::Real(n.font_scale),
+        SqlValue::Text(n.align.clone()),
         SqlValue::Integer(id),
     ];
     conn.execute(
         "UPDATE questions SET chapter_id=?, type_id=?, text=?, math=?, image_id=?,
         option_1=?, option_2=?, option_3=?, option_4=?, correct_option=?, answer=?, description=?,
-        marks=?, difficulty=?, lang=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        marks=?, difficulty=?, lang=?, font_scale=?, align=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
         params_from_iter(args.iter()),
     )?;
     Ok(())
@@ -404,6 +435,8 @@ pub fn serialize_question(conn: &Connection, q: &QuestionRow, answers: bool) -> 
         marks: q.marks,
         difficulty: q.difficulty.clone(),
         lang: q.lang.clone(),
+        font_scale: q.font_scale,
+        align: q.align.clone(),
         dir: if is_rtl(&q.lang) { "rtl" } else { "ltr" }.to_string(),
         correct_option: None,
         answer: None,

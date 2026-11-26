@@ -4,11 +4,11 @@ import { Markdown } from '../markdown/Markdown.jsx';
 import { MathTex } from '../markdown/MathTex.jsx';
 import { Badge, KindBadge } from '../ui/index.js';
 
-export function QuestionPickerRow({ q, selected, onToggle }) {
+export function QuestionPickerRow({ q, selected, onToggle, locked = false }) {
   const dir = q.dir || dirOf(q.lang);
 
   const handleKeyDown = (e) => {
-    if (e.target.closest('a')) return;
+    if (locked || e.target.closest('a')) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       onToggle(q);
@@ -16,7 +16,7 @@ export function QuestionPickerRow({ q, selected, onToggle }) {
   };
 
   const handleClick = (e) => {
-    if (e.target.closest('a')) return;
+    if (locked || e.target.closest('a')) return;
     onToggle(q);
   };
 
@@ -24,19 +24,29 @@ export function QuestionPickerRow({ q, selected, onToggle }) {
     <li>
       <div
         role="button"
-        tabIndex={0}
-        aria-pressed={selected}
-        aria-label={selected ? 'প্রশ্ন নির্বাচন বাতিল করুন' : 'প্রশ্ন নির্বাচন করুন'}
+        tabIndex={locked ? -1 : 0}
+        aria-pressed={selected || locked}
+        aria-disabled={locked}
+        aria-label={
+          locked
+            ? 'এই প্রশ্নটি ইতিমধ্যে যোগ করা হয়েছে'
+            : selected
+              ? 'প্রশ্ন নির্বাচন বাতিল করুন'
+              : 'প্রশ্ন নির্বাচন করুন'
+        }
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         className={cn(
-          'block w-full cursor-pointer rounded-xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400',
-          selected
-            ? 'border-indigo-400 bg-indigo-50/80 shadow-pop ring-2 ring-indigo-300'
-            : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50'
+          'block w-full rounded-xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400',
+          locked
+            ? 'cursor-not-allowed border-emerald-200 bg-emerald-50/60'
+            : selected
+              ? 'cursor-pointer border-indigo-400 bg-indigo-50/80 shadow-pop ring-2 ring-indigo-300'
+              : 'cursor-pointer border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50'
         )}
       >
         <div className="flex flex-wrap items-center gap-1.5">
+          {locked && <Badge tone="emerald">যোগ করা হয়েছে</Badge>}
           <KindBadge kind={q.kind} />
           <Badge tone="slate">{q.type}</Badge>
           {q.chapter_name && <Badge tone="indigo">{q.chapter_name}</Badge>}

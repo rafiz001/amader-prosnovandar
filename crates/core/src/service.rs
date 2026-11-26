@@ -183,6 +183,8 @@ fn update_question_op(conn: &Connection, p: &Fields) -> Result<Value> {
         Value::String(cur.difficulty.clone()),
     );
     merged.insert("lang".to_string(), Value::String(cur.lang.clone()));
+    merged.insert("font_scale".to_string(), number_value(cur.font_scale));
+    merged.insert("align".to_string(), Value::String(cur.align.clone()));
     merged.insert(
         "description".to_string(),
         Value::String(cur.description.clone()),

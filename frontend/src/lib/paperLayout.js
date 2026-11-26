@@ -71,11 +71,33 @@ export const WATERMARK_COLOR_OPTIONS = [
   { value: 'grayscale', label: 'গ্রেস্কেল' },
 ];
 
+export const WATERMARK_MODES = [
+  { value: 'logo', label: 'প্রতিষ্ঠানের লোগো' },
+  { value: 'image', label: 'নিজের ছবি' },
+  { value: 'text', label: 'লেখা' },
+  { value: 'none', label: 'বন্ধ' },
+];
+
+export const ALIGN_OPTIONS = [
+  { value: '', label: 'স্বয়ংক্রিয়' },
+  { value: 'left', label: 'বাম' },
+  { value: 'center', label: 'কেন্দ্র' },
+  { value: 'right', label: 'ডান' },
+  { value: 'justify', label: 'সারিবদ্ধ' },
+];
+
+export const QUESTION_ALIGN_OPTIONS = ALIGN_OPTIONS.filter(
+  (option) => option.value !== ''
+);
+
 export const DEFAULT_LAYOUT = {
   pageSize: 'A4',
   orientation: 'portrait',
   columns: 1,
   margin: 14,
+  fontScale: 1,
+  questionGap: 4,
+  align: '',
   numberFormat: 'bangla',
   questionMarkerStyle: 'circle',
   markerStyle: 'bengali-dot',
@@ -89,10 +111,16 @@ export const DEFAULT_LAYOUT = {
     answerKey: true,
   },
   watermark: {
+    mode: 'logo',
     enabled: true,
     size: 55,
     opacity: 15,
     grayscale: false,
+    image: '',
+    text: '',
+    angle: 45,
+    color: '#94a3b8',
+    textSize: 96,
   },
 };
 
@@ -108,11 +136,17 @@ export function watermarkSettings(watermark) {
   }
   const numericOpacity = Number(opacity);
   const numericSize = Number(source.size);
+  let mode = typeof source.mode === 'string' ? source.mode : '';
+  if (!WATERMARK_MODES.some((item) => item.value === mode)) {
+    mode = source.enabled === false ? 'none' : 'logo';
+  }
+  const numericAngle = Number(source.angle);
+  const numericTextSize = Number(source.textSize);
+  const validColor =
+    typeof source.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(source.color.trim());
   return {
-    enabled:
-      source.enabled === undefined
-        ? DEFAULT_LAYOUT.watermark.enabled
-        : Boolean(source.enabled),
+    mode,
+    enabled: mode !== 'none',
     size: Number.isFinite(numericSize)
       ? numericSize
       : DEFAULT_LAYOUT.watermark.size,
@@ -120,6 +154,15 @@ export function watermarkSettings(watermark) {
       ? Math.min(100, Math.max(0, numericOpacity))
       : DEFAULT_LAYOUT.watermark.opacity,
     grayscale: Boolean(source.grayscale),
+    image: typeof source.image === 'string' ? source.image : '',
+    text: typeof source.text === 'string' ? source.text : '',
+    angle: Number.isFinite(numericAngle)
+      ? numericAngle
+      : DEFAULT_LAYOUT.watermark.angle,
+    color: validColor ? source.color.trim() : DEFAULT_LAYOUT.watermark.color,
+    textSize: Number.isFinite(numericTextSize) && numericTextSize > 0
+      ? numericTextSize
+      : DEFAULT_LAYOUT.watermark.textSize,
   };
 }
 

@@ -127,6 +127,59 @@ fn crud_generate_and_papers() {
 }
 
 #[test]
+fn question_style_roundtrip_and_update_in_place() {
+    let mut conn = app();
+    let class = call(&mut conn, "classes.create", json!({ "name": "নবম" }));
+    let class_id = class["id"].as_i64().unwrap();
+    let subject = call(
+        &mut conn,
+        "subjects.create",
+        json!({ "class_id": class_id, "name": "ইংরেজি" }),
+    );
+    let subject_id = subject["id"].as_i64().unwrap();
+    let plain = call(&mut conn, "types.list", json!({ "subject_id": subject_id }))
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["kind"] == "text")
+        .unwrap()
+        .clone();
+
+    let created = call(
+        &mut conn,
+        "questions.create",
+        json!({
+            "subject_id": subject_id,
+            "type_id": plain["id"],
+            "text": "Write a paragraph.",
+            "font_scale": 1.4,
+            "align": "justify"
+        }),
+    );
+    let id = created["id"].as_i64().unwrap();
+    assert_eq!(created["font_scale"], 1.4);
+    assert_eq!(created["align"], "justify");
+
+    let updated = call(
+        &mut conn,
+        "questions.update",
+        json!({ "id": id, "text": "Write a short paragraph.", "font_scale": 0.85, "align": "center" }),
+    );
+    assert_eq!(updated["id"], id);
+    assert_eq!(updated["font_scale"], 0.85);
+    assert_eq!(updated["align"], "center");
+
+    let listed = call(
+        &mut conn,
+        "questions.list",
+        json!({ "subject_id": subject_id }),
+    );
+    assert_eq!(listed["total"], 1);
+    assert_eq!(listed["items"][0]["font_scale"], 0.85);
+    assert_eq!(listed["items"][0]["align"], "center");
+}
+
+#[test]
 fn filters_and_random_generation() {
     let mut conn = app();
     let class = call(&mut conn, "classes.create", json!({ "name": "নবম" }));

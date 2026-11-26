@@ -24,7 +24,7 @@ const inlineComponents = {
   h6: ({ children }) => <strong>{children}</strong>,
 };
 
-export function Markdown({ children, className, inline = false, dir }) {
+export function Markdown({ children, className, inline = false, dir, style }) {
   const value = String(children ?? '');
   if (!value.trim()) return null;
 
@@ -33,6 +33,7 @@ export function Markdown({ children, className, inline = false, dir }) {
   return (
     <Wrapper
       dir={dir}
+      style={style}
       className={cn('md-content', inline && 'md-content--inline', className)}
     >
       <ReactMarkdown

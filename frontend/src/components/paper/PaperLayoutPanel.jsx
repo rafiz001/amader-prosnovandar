@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  ALIGN_OPTIONS,
   COLUMN_OPTIONS,
   DEFAULT_LAYOUT,
   HEADING_OPTIONS,
@@ -9,11 +10,24 @@ import {
   PAGE_SIZES,
   QUESTION_MARKER_STYLES,
   WATERMARK_COLOR_OPTIONS,
+  WATERMARK_MODES,
   watermarkSettings,
 } from '../../lib/paperLayout.js';
 import { API } from '../../lib/api.js';
 import { bnNum, cn } from '../../lib/utils.js';
+import { Icon } from '../Icon.jsx';
 import { Button, Card, CardHeader, Field, Input, Select, Toggle } from '../ui/index.js';
+
+const MAX_IMAGE = 5 * 1024 * 1024;
+
+function readAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('read failed'));
+    reader.readAsDataURL(file);
+  });
+}
 
 function Segmented({ value, options, onChange }) {
   return (
@@ -77,6 +91,22 @@ export function PaperLayoutPanel({ layout, onChange, hasLogo = true }) {
 
   const setWatermark = (changes) =>
     onChange({ watermark: { ...l.watermark, ...changes } });
+
+  const setFontScale = (delta) => {
+    const current = Number(l.fontScale) || 1;
+    const next = Math.min(3, Math.max(0.6, Math.round((current + delta) * 100) / 100));
+    onChange({ fontScale: next });
+  };
+
+  const onPickWatermarkImage = async (file) => {
+    if (!file || file.size > MAX_IMAGE) return;
+    try {
+      const image = await readAsDataUrl(file);
+      setWatermark({ image, mode: 'image' });
+    } catch {
+      /* ignore unreadable files */
+    }
+  };
 
   const applyPreset = (id) => {
     setPresetId(id);
@@ -271,6 +301,66 @@ export function PaperLayoutPanel({ layout, onChange, hasLogo = true }) {
           />
         </Field>
 
+        <Field
+          label="লেখার আকার"
+          hint={`পুরো প্রশ্নপত্রের লেখা ${bnNum(Math.round((Number(l.fontScale) || 1) * 100))}%`}
+        >
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setFontScale(-0.05)}
+              aria-label="লেখার আকার কমান"
+            >
+              −
+            </Button>
+            <span className="min-w-[3.5rem] text-center text-sm font-semibold text-slate-700">
+              {bnNum(Math.round((Number(l.fontScale) || 1) * 100))}%
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setFontScale(0.05)}
+              aria-label="লেখার আকার বাড়ান"
+            >
+              +
+            </Button>
+          </div>
+        </Field>
+
+        <Field
+          label="প্রশ্নের মাঝের ফাঁক (মিমি)"
+          hint="প্রতিটি প্রশ্নের নিচে অতিরিক্ত জায়গা"
+        >
+          <Input
+            type="number"
+            min="0"
+            max="20"
+            step="1"
+            value={l.questionGap}
+            onChange={(e) =>
+              onChange({
+                questionGap: e.target.value === '' ? '' : Number(e.target.value),
+              })
+            }
+          />
+        </Field>
+
+        <Field label="প্রশ্নের সারিবদ্ধতা">
+          <Select
+            value={l.align || ''}
+            onChange={(e) => onChange({ align: e.target.value })}
+          >
+            {ALIGN_OPTIONS.map((option) => (
+              <option key={option.value || 'auto'} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
         <Field label="অভিমুখ">
           <Segmented
             value={l.orientation}
@@ -346,20 +436,101 @@ export function PaperLayoutPanel({ layout, onChange, hasLogo = true }) {
 
         <div>
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            লোগো ওয়াটারমার্ক
+            ওয়াটারমার্ক
           </p>
           <div className="space-y-2">
-            <Toggle
-              label="লোগো দেখান"
-              hint={
-                hasLogo
-                  ? 'প্রতিটি পৃষ্ঠার মাঝে হালকা লোগো'
-                  : 'প্রতিষ্ঠানের কোনো লোগো নেই'
-              }
-              checked={!!l.watermark.enabled}
-              onChange={(enabled) => setWatermark({ enabled })}
-            />
-            {l.watermark.enabled && (
+            <Field label="উৎস" hint="একবারে একটিই ব্যবহার করা যায়">
+              <Select
+                value={l.watermark.mode}
+                onChange={(e) => setWatermark({ mode: e.target.value })}
+              >
+                {WATERMARK_MODES.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            {l.watermark.mode === 'logo' && !hasLogo && (
+              <p className="rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
+                প্রতিষ্ঠানের কোনো লোগো নেই। প্রতিষ্ঠান পাতায় লোগো যোগ করুন।
+              </p>
+            )}
+
+            {l.watermark.mode === 'image' && (
+              <div>
+                {l.watermark.image ? (
+                  <div className="flex flex-wrap items-start gap-2">
+                    <img
+                      src={l.watermark.image}
+                      alt="ওয়াটারমার্ক"
+                      className="max-h-20 rounded border border-slate-200 bg-white object-contain p-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="dangerGhost"
+                      icon="trash"
+                      onClick={() => setWatermark({ image: '' })}
+                    >
+                      সরান
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500 hover:border-indigo-300 hover:text-indigo-600">
+                    <Icon name="image" className="h-4 w-4" />
+                    ওয়াটারমার্কের ছবি বাছুন
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        onPickWatermarkImage(file);
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+
+            {l.watermark.mode === 'text' && (
+              <>
+                <Field label="লেখা">
+                  <Input
+                    value={l.watermark.text}
+                    onChange={(e) => setWatermark({ text: e.target.value })}
+                    placeholder="যেমন: নমুনা প্রশ্ন"
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="কোণ (ডিগ্রি)">
+                    <Input
+                      type="number"
+                      min="-180"
+                      max="180"
+                      step="5"
+                      value={l.watermark.angle}
+                      onChange={(e) =>
+                        setWatermark({ angle: Number(e.target.value) || 0 })
+                      }
+                    />
+                  </Field>
+                  <Field label="রঙ">
+                    <Input
+                      type="color"
+                      value={l.watermark.color}
+                      onChange={(e) => setWatermark({ color: e.target.value })}
+                      className="h-10 cursor-pointer p-1"
+                    />
+                  </Field>
+                </div>
+              </>
+            )}
+
+            {(l.watermark.mode === 'logo' || l.watermark.mode === 'image') && (
               <>
                 <Field
                   label="আকার"
@@ -375,20 +546,6 @@ export function PaperLayoutPanel({ layout, onChange, hasLogo = true }) {
                     className="w-full accent-indigo-600"
                   />
                 </Field>
-                <Field
-                  label="অপাসিটি"
-                  hint={`${bnNum(l.watermark.opacity)}% · বেশি = স্পষ্ট`}
-                >
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={l.watermark.opacity}
-                    onChange={(e) => setWatermark({ opacity: Number(e.target.value) })}
-                    className="w-full accent-indigo-600"
-                  />
-                </Field>
                 <Field label="রঙ">
                   <Segmented
                     value={l.watermark.grayscale ? 'grayscale' : 'color'}
@@ -399,6 +556,40 @@ export function PaperLayoutPanel({ layout, onChange, hasLogo = true }) {
                   />
                 </Field>
               </>
+            )}
+
+            {l.watermark.mode === 'text' && (
+              <Field
+                label="লেখার আকার"
+                hint={`${bnNum(l.watermark.textSize)} পিক্সেল`}
+              >
+                <input
+                  type="range"
+                  min="20"
+                  max="260"
+                  step="4"
+                  value={l.watermark.textSize}
+                  onChange={(e) => setWatermark({ textSize: Number(e.target.value) })}
+                  className="w-full accent-indigo-600"
+                />
+              </Field>
+            )}
+
+            {l.watermark.mode !== 'none' && (
+              <Field
+                label="অপাসিটি"
+                hint={`${bnNum(l.watermark.opacity)}% · বেশি = স্পষ্ট`}
+              >
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={l.watermark.opacity}
+                  onChange={(e) => setWatermark({ opacity: Number(e.target.value) })}
+                  className="w-full accent-indigo-600"
+                />
+              </Field>
             )}
           </div>
         </div>

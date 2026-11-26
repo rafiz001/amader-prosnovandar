@@ -120,7 +120,8 @@ export function GeneratePage() {
     const chosenSubject = (classSubjects || []).find(
       (subject) => String(subject.id) === String(form.subject_id)
     );
-    const meta = {};
+    const meta = { subject_id: Number(form.subject_id) };
+    if (form.class_id) meta.class_id = Number(form.class_id);
     const className = chosenClass?.name || selected[0]?.class_name;
     const subjectName = chosenSubject?.name || selected[0]?.subject_name;
     if (className) meta.class_name = className;

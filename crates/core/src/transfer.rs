@@ -92,6 +92,14 @@ pub struct DocQuestion {
     pub marks: f64,
     pub difficulty: String,
     pub lang: String,
+    #[serde(default = "default_font_scale")]
+    pub font_scale: f64,
+    #[serde(default)]
+    pub align: String,
+}
+
+fn default_font_scale() -> f64 {
+    1.0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -284,6 +292,8 @@ fn build_doc_scoped(
                     marks: q.marks,
                     difficulty: q.difficulty.clone(),
                     lang: q.lang.clone(),
+                    font_scale: q.font_scale,
+                    align: q.align.clone(),
                 };
                 if q.kind == "mcq" {
                     dq.options = Some(vec![
