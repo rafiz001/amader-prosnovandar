@@ -183,7 +183,7 @@ fn update_question_op(conn: &Connection, p: &Fields) -> Result<Value> {
         Value::String(cur.difficulty.clone()),
     );
     merged.insert("lang".to_string(), Value::String(cur.lang.clone()));
-    merged.insert("font_scale".to_string(), number_value(cur.font_scale));
+    merged.insert("font_pt".to_string(), number_value(cur.font_pt));
     merged.insert("align".to_string(), Value::String(cur.align.clone()));
     merged.insert(
         "description".to_string(),
@@ -506,17 +506,17 @@ pub fn call(conn: &mut Connection, op: &str, payload: Value) -> Result<Value> {
                 .get("include_files")
                 .map(|v| to_str(v) == "false")
                 .unwrap_or(false);
-            let class_id = if p.get("class_id").is_some() {
-                Some(id_arg(&p, "class_id", "class id")?)
-            } else {
-                None
-            };
+            let filter = transfer::backup_filter_from(&p)?;
             to_json(&transfer::export_backup(
                 conn,
                 &scope,
-                class_id,
+                &filter,
                 include_files,
             )?)
+        }
+        "backup.preview" => {
+            let filter = transfer::backup_filter_from(&p)?;
+            transfer::preview_backup(conn, &filter)
         }
         "backup.restore" => {
             let raw = p.str("data_base64");

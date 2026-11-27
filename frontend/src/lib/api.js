@@ -182,7 +182,8 @@ export const API = {
 
   backup: {
     exportFull: () => call('backup.export', { scope: 'full' }),
-    exportClass: (classId) => call('backup.export', { scope: 'class', class_id: classId }),
+    exportClass: (options = {}) => call('backup.export', { scope: 'class', ...options }),
+    preview: (options = {}) => call('backup.preview', { scope: 'class', ...options }),
     restore: (options) => call('backup.restore', options),
   },
 

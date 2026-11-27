@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use rusqlite::types::Value as SqlValue;
 use rusqlite::{params_from_iter, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 use crate::db;
 use crate::error::{http_err, ApiError, Result};
@@ -14,8 +14,8 @@ use crate::questions::{
     save_file, QUESTION_KINDS,
 };
 use crate::util::{
-    b64_decode, b64_encode, contains, format_date_compact, now_ms, placeholders, to_str, Fields,
-    FieldsExt,
+    any_list, b64_decode, b64_encode, contains, format_date_compact, id_from, now_ms,
+    parse_id_list, placeholders, to_str, Fields, FieldsExt,
 };
 
 // ---- portable document ------------------------------------------------------
@@ -92,14 +92,10 @@ pub struct DocQuestion {
     pub marks: f64,
     pub difficulty: String,
     pub lang: String,
-    #[serde(default = "default_font_scale")]
-    pub font_scale: f64,
+    #[serde(default)]
+    pub font_pt: f64,
     #[serde(default)]
     pub align: String,
-}
-
-fn default_font_scale() -> f64 {
-    1.0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,16 +106,149 @@ pub struct DocFile {
     pub data_base64: String,
 }
 
+/// Which classes and which question dates a scoped backup should include.
+#[derive(Debug, Clone, Default)]
+pub struct BackupFilter {
+    /// `None` = every class, `Some([])` = no classes.
+    pub class_ids: Option<Vec<i64>>,
+    pub date_from: Option<String>,
+    pub date_to: Option<String>,
+}
+
+fn normalize_filter_date(f: &Fields, key: &str) -> Result<Option<String>> {
+    let value = f.str(key);
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let date: String = value.chars().take(10).collect();
+    let bytes = date.as_bytes();
+    let ok = bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(i, b)| matches!(i, 4 | 7) || b.is_ascii_digit());
+    if !ok {
+        return Err(http_err(
+            400,
+            format!("{key} must be a date like 2026-11-26"),
+        ));
+    }
+    Ok(Some(date))
+}
+
+/// Reads `all_classes` / `class_ids` / `class_id` and `date_from` / `date_to`.
+pub fn backup_filter_from(f: &Fields) -> Result<BackupFilter> {
+    let class_ids = if f.flag("all_classes") {
+        None
+    } else if let Some(v) = f.get("class_ids") {
+        let values = any_list(Some(v));
+        if values.is_empty() {
+            None
+        } else {
+            Some(parse_id_list(&values, "class id", false)?.0)
+        }
+    } else if let Some(v) = f.get("class_id") {
+        if v.is_null() || to_str(v).is_empty() {
+            None
+        } else {
+            Some(vec![id_from(v, "class id")?])
+        }
+    } else {
+        None
+    };
+    let date_from = normalize_filter_date(f, "date_from")?;
+    let date_to = normalize_filter_date(f, "date_to")?;
+    if let (Some(from), Some(to)) = (&date_from, &date_to) {
+        if from > to {
+            return Err(http_err(400, "date_from must be before date_to"));
+        }
+    }
+    Ok(BackupFilter {
+        class_ids,
+        date_from,
+        date_to,
+    })
+}
+
+fn class_condition(filter: &BackupFilter, column: &str) -> (String, Vec<SqlValue>) {
+    match &filter.class_ids {
+        Some(ids) if ids.is_empty() => (" AND 1 = 0".to_string(), Vec::new()),
+        Some(ids) => (
+            format!(" AND {column} IN ({})", placeholders(ids.len())),
+            ids.iter().map(|id| SqlValue::Integer(*id)).collect(),
+        ),
+        None => (String::new(), Vec::new()),
+    }
+}
+
+fn date_condition(filter: &BackupFilter) -> (String, Vec<SqlValue>) {
+    let mut parts: Vec<String> = Vec::new();
+    let mut args: Vec<SqlValue> = Vec::new();
+    if let Some(from) = &filter.date_from {
+        parts.push("date(COALESCE(q.updated_at, q.created_at)) >= date(?)".to_string());
+        args.push(SqlValue::Text(from.clone()));
+    }
+    if let Some(to) = &filter.date_to {
+        parts.push("date(COALESCE(q.updated_at, q.created_at)) <= date(?)".to_string());
+        args.push(SqlValue::Text(to.clone()));
+    }
+    if parts.is_empty() {
+        (String::new(), args)
+    } else {
+        (format!(" AND {}", parts.join(" AND ")), args)
+    }
+}
+
+/// Counts what a scoped backup would contain, so the UI can preview it.
+pub fn preview_backup(conn: &Connection, filter: &BackupFilter) -> Result<Value> {
+    let (class_sql, class_args) = class_condition(filter, "c.id");
+    let (date_sql, date_args) = date_condition(filter);
+
+    let class_count: i64 = conn.query_row(
+        &format!("SELECT COUNT(*) FROM classes c WHERE 1 = 1{class_sql}"),
+        params_from_iter(class_args.iter()),
+        |r| r.get(0),
+    )?;
+    let subject_count: i64 = conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM subjects s JOIN classes c ON c.id = s.class_id WHERE 1 = 1{class_sql}"
+        ),
+        params_from_iter(class_args.iter()),
+        |r| r.get(0),
+    )?;
+    let mut question_args = class_args;
+    question_args.extend(date_args);
+    let question_count: i64 = conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM questions q
+             JOIN subjects s ON s.id = q.subject_id
+             JOIN classes c ON c.id = s.class_id
+             WHERE 1 = 1{class_sql}{date_sql}"
+        ),
+        params_from_iter(question_args.iter()),
+        |r| r.get(0),
+    )?;
+
+    Ok(json!({
+        "classes": class_count,
+        "subjects": subject_count,
+        "questions": question_count,
+    }))
+}
+
 // ---- export -----------------------------------------------------------------
 
 pub fn build_doc(conn: &Connection, include_files: bool) -> Result<Doc> {
-    build_doc_scoped(conn, include_files, None)
+    build_doc_scoped(conn, include_files, &BackupFilter::default(), false)
 }
 
 fn build_doc_scoped(
     conn: &Connection,
     include_files: bool,
-    class_filter: Option<i64>,
+    filter: &BackupFilter,
+    class_backup: bool,
 ) -> Result<Doc> {
     let mut keys: HashMap<i64, String> = HashMap::new();
     let mut files: Vec<DocFile> = Vec::new();
@@ -188,7 +317,7 @@ fn build_doc_scoped(
             None,
         ),
     };
-    let institute = if class_filter.is_some() {
+    let institute = if class_backup {
         DocInstitute {
             name: String::new(),
             location: String::new(),
@@ -205,12 +334,7 @@ fn build_doc_scoped(
         version: 2,
         exported_at: crate::util::format_iso_ms(now_ms()),
         backup: Some(DocBackup {
-            scope: if class_filter.is_some() {
-                "class"
-            } else {
-                "full"
-            }
-            .to_string(),
+            scope: if class_backup { "class" } else { "full" }.to_string(),
             class_name: None,
         }),
         institute,
@@ -218,10 +342,16 @@ fn build_doc_scoped(
         files: Vec::new(),
     };
 
-    let classes: Vec<(i64, String, String)> = match class_filter {
-        Some(class_id) => {
-            let mut stmt = conn.prepare("SELECT id, name, description FROM classes WHERE id=?")?;
-            let rows = stmt.query_map([class_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    let classes: Vec<(i64, String, String)> = match &filter.class_ids {
+        Some(ids) if ids.is_empty() => Vec::new(),
+        Some(ids) => {
+            let tail = format!(" WHERE id IN ({}) ORDER BY id", placeholders(ids.len()));
+            let mut stmt =
+                conn.prepare(&format!("SELECT id, name, description FROM classes{tail}"))?;
+            let args: Vec<SqlValue> = ids.iter().map(|id| SqlValue::Integer(*id)).collect();
+            let rows = stmt.query_map(params_from_iter(args.iter()), |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })?;
             rows.collect::<rusqlite::Result<Vec<_>>>()?
         }
         None => {
@@ -272,12 +402,20 @@ fn build_doc_scoped(
                     kind: t.kind,
                 });
             }
-            for q in query_questions(
-                conn,
-                false,
-                " WHERE q.subject_id = ? ORDER BY q.id",
-                vec![SqlValue::Integer(subject_id)],
-            )? {
+            let mut question_where = vec!["q.subject_id = ?".to_string()];
+            let mut question_args: Vec<SqlValue> = vec![SqlValue::Integer(subject_id)];
+            if let Some(from) = &filter.date_from {
+                question_where
+                    .push("date(COALESCE(q.updated_at, q.created_at)) >= date(?)".to_string());
+                question_args.push(SqlValue::Text(from.clone()));
+            }
+            if let Some(to) = &filter.date_to {
+                question_where
+                    .push("date(COALESCE(q.updated_at, q.created_at)) <= date(?)".to_string());
+                question_args.push(SqlValue::Text(to.clone()));
+            }
+            let question_tail = format!(" WHERE {} ORDER BY q.id", question_where.join(" AND "));
+            for q in query_questions(conn, false, &question_tail, question_args)? {
                 let image = key_for(conn, &mut keys, &mut files, q.image_id, include_files)?;
                 let mut dq = DocQuestion {
                     type_name: q.type_name.clone(),
@@ -292,7 +430,7 @@ fn build_doc_scoped(
                     marks: q.marks,
                     difficulty: q.difficulty.clone(),
                     lang: q.lang.clone(),
-                    font_scale: q.font_scale,
+                    font_pt: q.font_pt,
                     align: q.align.clone(),
                 };
                 if q.kind == "mcq" {
@@ -311,8 +449,12 @@ fn build_doc_scoped(
         doc.classes.push(dc);
     }
 
-    if class_filter.is_some() {
-        let class_name = doc.classes.first().map(|c| c.name.clone());
+    if class_backup {
+        let class_name = if doc.classes.len() == 1 {
+            doc.classes.first().map(|c| c.name.clone())
+        } else {
+            None
+        };
         if let Some(backup) = doc.backup.as_mut() {
             backup.class_name = class_name;
         }
@@ -391,7 +533,7 @@ fn backup_stamp(ms: i64) -> String {
 pub fn export_backup(
     conn: &mut Connection,
     scope: &str,
-    class_id: Option<i64>,
+    filter: &BackupFilter,
     include_files: bool,
 ) -> Result<ExportFile> {
     let stamp = backup_stamp(now_ms());
@@ -405,16 +547,18 @@ pub fn export_backup(
             })
         }
         "class" => {
-            let id =
-                class_id.ok_or_else(|| http_err(400, "class_id is required for a class backup"))?;
-            crate::basic::assert_class(conn, id)?;
-            let doc = build_doc_scoped(conn, include_files, Some(id))?;
+            let doc = build_doc_scoped(conn, include_files, filter, true)?;
             let bytes = serde_json::to_vec_pretty(&doc)?;
-            let name = doc
-                .classes
-                .first()
-                .map(|c| c.name.as_str())
-                .unwrap_or("class");
+            let name = if doc.classes.len() == 1 {
+                doc.classes
+                    .first()
+                    .map(|c| c.name.as_str())
+                    .unwrap_or("class")
+            } else if doc.classes.is_empty() {
+                "empty"
+            } else {
+                "all-classes"
+            };
             Ok(ExportFile {
                 filename: format!("question-bank-class-{}-{stamp}.json", file_slug(name)),
                 mime: "application/json; charset=utf-8".to_string(),

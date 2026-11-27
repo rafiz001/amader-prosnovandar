@@ -80,7 +80,7 @@ pub struct QuestionOut {
     pub marks: f64,
     pub difficulty: String,
     pub lang: String,
-    pub font_scale: f64,
+    pub font_pt: f64,
     pub align: String,
     pub dir: String,
     #[serde(skip_serializing_if = "Option::is_none")]

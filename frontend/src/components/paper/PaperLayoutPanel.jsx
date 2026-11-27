@@ -29,6 +29,48 @@ function readAsDataUrl(file) {
   });
 }
 
+function PtStepper({ value, onChange, min = 4, max = 40, step = 0.5 }) {
+  const current = Math.min(max, Math.max(min, Number(value) || min));
+  const set = (next) =>
+    onChange(Math.round(Math.min(max, Math.max(min, next)) * 10) / 10);
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={() => set(current - step)}
+        aria-label="আকার কমান"
+      >
+        −
+      </Button>
+      <div className="flex min-w-[4.5rem] items-center justify-center gap-1">
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={value === '' || value === undefined ? '' : value}
+          onChange={(e) =>
+            onChange(e.target.value === '' ? '' : Number(e.target.value))
+          }
+          className="w-14 rounded-md border border-slate-300 bg-white px-1 py-1 text-center text-sm font-semibold text-slate-700 focus:border-indigo-400 focus:outline-none"
+        />
+        <span className="text-xs text-slate-500">pt</span>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={() => set(current + step)}
+        aria-label="আকার বাড়ান"
+      >
+        +
+      </Button>
+    </div>
+  );
+}
+
 function Segmented({ value, options, onChange }) {
   return (
     <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
@@ -91,12 +133,6 @@ export function PaperLayoutPanel({ layout, onChange, hasLogo = true }) {
 
   const setWatermark = (changes) =>
     onChange({ watermark: { ...l.watermark, ...changes } });
-
-  const setFontScale = (delta) => {
-    const current = Number(l.fontScale) || 1;
-    const next = Math.min(3, Math.max(0.6, Math.round((current + delta) * 100) / 100));
-    onChange({ fontScale: next });
-  };
 
   const onPickWatermarkImage = async (file) => {
     if (!file || file.size > MAX_IMAGE) return;
@@ -302,32 +338,23 @@ export function PaperLayoutPanel({ layout, onChange, hasLogo = true }) {
         </Field>
 
         <Field
-          label="লেখার আকার"
-          hint={`পুরো প্রশ্নপত্রের লেখা ${bnNum(Math.round((Number(l.fontScale) || 1) * 100))}%`}
+          label="প্রশ্নের লেখার আকার (pt)"
+          hint="মূল প্রশ্নগুলোর ফন্ট, পয়েন্টে"
         >
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => setFontScale(-0.05)}
-              aria-label="লেখার আকার কমান"
-            >
-              −
-            </Button>
-            <span className="min-w-[3.5rem] text-center text-sm font-semibold text-slate-700">
-              {bnNum(Math.round((Number(l.fontScale) || 1) * 100))}%
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => setFontScale(0.05)}
-              aria-label="লেখার আকার বাড়ান"
-            >
-              +
-            </Button>
-          </div>
+          <PtStepper
+            value={l.questionFontPt}
+            onChange={(questionFontPt) => onChange({ questionFontPt })}
+          />
+        </Field>
+
+        <Field
+          label="হেডারের লেখার আকার (pt)"
+          hint="প্রতিষ্ঠান, শ্রেণি, বিষয়, পরিচিতি, সময় ও পূর্ণমান"
+        >
+          <PtStepper
+            value={l.headerFontPt}
+            onChange={(headerFontPt) => onChange({ headerFontPt })}
+          />
         </Field>
 
         <Field

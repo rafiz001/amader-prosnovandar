@@ -9,6 +9,7 @@ import {
   optionMarker,
   pageDimensions,
   paginateQuestions,
+  paperFontSizes,
   questionMarker,
   watermarkSettings,
 } from '../../lib/paperLayout.js';
@@ -29,8 +30,18 @@ const PER_QUESTION_ALIGNS = [
   ...QUESTION_ALIGN_OPTIONS,
 ];
 
-function clampScale(value) {
-  return Math.min(3, Math.max(0.5, Math.round(value * 100) / 100));
+function clampPt(value) {
+  return Math.min(48, Math.max(4, Math.round((Number(value) || 4) * 10) / 10));
+}
+
+function questionPtOf(q) {
+  const pt = Number(q?.font_pt);
+  if (Number.isFinite(pt) && pt > 0) return pt;
+  const legacy = Number(q?.font_scale);
+  if (Number.isFinite(legacy) && legacy > 0 && Math.abs(legacy - 1) > 0.001) {
+    return 13 * legacy * 0.75;
+  }
+  return 0;
 }
 
 const EDIT_INPUT =
@@ -154,9 +165,7 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
   const fullMarksValue = textOr(meta.full_marks, values.fullMarks);
   const showMarksRow =
     (h.time || h.fullMarks) && (editing || values.time || values.fullMarks);
-  const headerScale = Number(layout.fontScale) || 1;
-  const titlePx = Math.round(20 * headerScale * 100) / 100;
-  const bodyPx = Math.round(14 * headerScale * 100) / 100;
+  const { headerPt, titlePt } = paperFontSizes(layout);
 
   return (
     <div className="border-b border-slate-400 pb-3 text-center">
@@ -171,7 +180,7 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
         ) : values.institute ? (
           <h2
             className="text-xl font-bold tracking-tight text-slate-900"
-            style={{ fontSize: titlePx }}
+            style={{ fontSize: `${titlePt}pt` }}
           >
             {values.institute}
           </h2>
@@ -179,21 +188,18 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
 
       {h.introduction &&
         (editing ? (
-          <div className="mt-1 flex w-full items-center gap-1 text-left text-sm text-slate-700">
-            <span className="shrink-0 font-semibold">পরিচিতি:</span>
-            <input
-              className={cn(EDIT_INPUT, 'min-w-0 flex-1 text-left')}
-              value={introValue}
-              onChange={(e) => onMeta({ introduction: e.target.value })}
-              placeholder="পরীক্ষা বা সাজেশন লিখুন"
-            />
-          </div>
+          <input
+            className={cn(EDIT_INPUT, 'mt-1 w-full text-center')}
+            value={introValue}
+            onChange={(e) => onMeta({ introduction: e.target.value })}
+            placeholder="পরীক্ষা বা সাজেশন লিখুন"
+          />
         ) : values.introduction ? (
           <p
-            className="mt-0.5 w-full whitespace-pre-wrap text-left text-slate-700"
-            style={{ fontSize: bodyPx }}
+            className="mt-0.5 w-full whitespace-pre-wrap text-center text-slate-700"
+            style={{ fontSize: `${headerPt}pt` }}
           >
-            <span className="font-semibold">পরিচিতি:</span> {values.introduction}
+            {values.introduction}
           </p>
         ) : null)}
 
@@ -209,7 +215,7 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
             />
           </label>
         ) : values.class ? (
-          <p className="mt-0.5 font-medium text-slate-700" style={{ fontSize: bodyPx }}>
+          <p className="mt-0.5 font-medium text-slate-700" style={{ fontSize: `${headerPt}pt` }}>
             <span className="font-semibold">শ্রেণি:</span> {values.class}
           </p>
         ) : null)}
@@ -226,7 +232,7 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
             />
           </label>
         ) : values.subject ? (
-          <p className="mt-0.5 font-medium text-slate-700" style={{ fontSize: bodyPx }}>
+          <p className="mt-0.5 font-medium text-slate-700" style={{ fontSize: `${headerPt}pt` }}>
             <span className="font-semibold">বিষয়:</span> {values.subject}
           </p>
         ) : null)}
@@ -234,7 +240,7 @@ function PaperHeader({ paper, layout, fmt, values, editing, onInstitute, onMeta 
       {showMarksRow && (
         <div
           className="mt-1 flex items-baseline justify-between gap-4 font-semibold text-slate-800"
-          style={{ fontSize: bodyPx }}
+          style={{ fontSize: `${headerPt}pt` }}
         >
           {h.time &&
             (editing ? (
@@ -284,17 +290,25 @@ function QuestionBlock({
 }) {
   const dir = q.dir || dirOf(q.lang);
   const narrow = layout.columns === 2 || layout.pageSize === 'A5';
-  const scale = (Number(layout.fontScale) || 1) * (Number(q.font_scale) || 1);
-  const fontPx = Math.round(13 * scale * 100) / 100;
-  const optionPx = Math.round(fontPx * 0.95 * 100) / 100;
-  const smallPx = Math.round(fontPx * 0.86 * 100) / 100;
+  const { questionPt } = paperFontSizes(layout);
+  const ownPt = questionPtOf(q);
+  const effectivePt = ownPt > 0 ? ownPt : questionPt;
+  const optionPt = Math.round(effectivePt * 0.95 * 10) / 10;
+  const smallPt = Math.round(effectivePt * 0.86 * 10) / 10;
   const align = q.align || layout.align || '';
   const textAlign = align || undefined;
-  const questionScale = Number(q.font_scale) || 1;
+  const stretch = editing || !align || align === 'justify';
+  const reverseMarker = align === 'right' && !editing;
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   return (
-    <div className="flex gap-2">
+    <div
+      className="flex gap-2"
+      style={{
+        flexDirection: reverseMarker ? 'row-reverse' : 'row',
+        justifyContent: align === 'center' ? 'center' : 'flex-start',
+      }}
+    >
       <QuestionMarker
         marker={questionMarker(
           q.number ?? index + 1,
@@ -302,7 +316,10 @@ function QuestionBlock({
           layout.numberFormat
         )}
       />
-      <div className="min-w-0 flex-1" style={{ textAlign }}>
+      <div
+        className={cn('min-w-0', stretch ? 'flex-1' : 'max-w-full')}
+        style={{ textAlign }}
+      >
         {editing ? (
           <div className="space-y-2 rounded-lg border border-indigo-100 bg-indigo-50/30 p-2">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/70 px-2 py-1.5">
@@ -311,27 +328,33 @@ function QuestionBlock({
                   <span className={EDIT_LABEL}>আকার</span>
                   <button
                     type="button"
-                    onClick={() =>
-                      onChange({ font_scale: clampScale(questionScale - 0.05) })
-                    }
+                    onClick={() => onChange({ font_pt: clampPt(effectivePt - 0.5) })}
                     className="grid h-6 w-6 place-items-center rounded border border-indigo-200 bg-white text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
                     aria-label="এই প্রশ্নের লেখা ছোট করুন"
                   >
                     −
                   </button>
-                  <span className="w-11 text-center text-xs font-semibold text-slate-700">
-                    {bnNum(Math.round(questionScale * 100))}%
+                  <span className="w-14 text-center text-xs font-semibold text-slate-700">
+                    {bnNum(effectivePt)} pt
                   </span>
                   <button
                     type="button"
-                    onClick={() =>
-                      onChange({ font_scale: clampScale(questionScale + 0.05) })
-                    }
+                    onClick={() => onChange({ font_pt: clampPt(effectivePt + 0.5) })}
                     className="grid h-6 w-6 place-items-center rounded border border-indigo-200 bg-white text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
                     aria-label="এই প্রশ্নের লেখা বড় করুন"
                   >
                     +
                   </button>
+                  {ownPt > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ font_pt: 0 })}
+                      className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                      title="পুরো প্রশ্নপত্রের আকার ব্যবহার করুন"
+                    >
+                      অটো
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
                   <span className={EDIT_LABEL}>সাজানো</span>
@@ -554,7 +577,7 @@ function QuestionBlock({
             {q.text && (
               <Markdown
                 dir={dir}
-                style={{ fontSize: fontPx, textAlign }}
+                style={{ fontSize: `${effectivePt}pt`, textAlign }}
                 className={cn(
                   'leading-relaxed text-slate-800',
                   dir === 'rtl' ? 'rtl-text' : 'ltr-text'
@@ -567,7 +590,7 @@ function QuestionBlock({
               <MathTex
                 tex={q.math}
                 display
-                style={{ fontSize: fontPx }}
+                style={{ fontSize: `${effectivePt}pt` }}
                 className="mt-1 text-slate-700"
               />
             )}
@@ -585,7 +608,7 @@ function QuestionBlock({
                   'mt-1.5 grid gap-1 text-slate-700',
                   narrow ? 'grid-cols-1' : 'grid-cols-2'
                 )}
-                style={{ fontSize: optionPx }}
+                style={{ fontSize: `${optionPt}pt` }}
               >
                 {q.options.map((opt, i) => (
                   <li key={i} className="flex items-start gap-1.5">
@@ -595,7 +618,7 @@ function QuestionBlock({
                     <Markdown
                       inline
                       dir={dir}
-                      style={{ fontSize: optionPx, textAlign }}
+                      style={{ fontSize: `${optionPt}pt`, textAlign }}
                       className="text-slate-700"
                     >
                       {opt}
@@ -606,12 +629,15 @@ function QuestionBlock({
             )}
 
             {showAnswers && q.answer != null && q.kind !== 'mcq' && (
-              <div className="mt-1 font-medium text-emerald-700" style={{ fontSize: smallPx }}>
+              <div
+                className="mt-1 font-medium text-emerald-700"
+                style={{ fontSize: `${smallPt}pt` }}
+              >
                 উত্তর:{' '}
                 <Markdown
                   inline
                   dir={dir}
-                  style={{ fontSize: smallPx, textAlign }}
+                  style={{ fontSize: `${smallPt}pt`, textAlign }}
                   className="font-medium text-emerald-700"
                 >
                   {String(q.answer)}
@@ -621,7 +647,7 @@ function QuestionBlock({
             {showAnswers && q.description && (
               <Markdown
                 dir={dir}
-                style={{ fontSize: smallPx, textAlign }}
+                style={{ fontSize: `${smallPt}pt`, textAlign }}
                 className="mt-1 text-slate-500"
               >
                 {q.description}
@@ -637,7 +663,7 @@ function QuestionBlock({
 function AnswerKeyBlock({ paper, layout, fmt }) {
   const entries = paper.answer_key || [];
   if (!entries.length) return null;
-  const fontPx = Math.round(13 * (Number(layout.fontScale) || 1) * 100) / 100;
+  const { questionPt } = paperFontSizes(layout);
 
   return (
     <div className="rounded-lg border border-slate-300 p-3">
@@ -647,7 +673,7 @@ function AnswerKeyBlock({ paper, layout, fmt }) {
           'grid gap-1 text-slate-700',
           layout.pageSize === 'A5' ? 'grid-cols-2' : 'grid-cols-4'
         )}
-        style={{ fontSize: fontPx }}
+        style={{ fontSize: `${questionPt}pt` }}
       >
         {entries.map((a) => {
           const marker = a.correct_option
@@ -661,7 +687,11 @@ function AnswerKeyBlock({ paper, layout, fmt }) {
             <p key={a.number}>
               <span className="font-semibold">{fmt(a.number)}.</span>{' '}
               {a.answer != null && (
-                <Markdown inline style={{ fontSize: fontPx }} className="text-slate-700">
+                <Markdown
+                  inline
+                  style={{ fontSize: `${questionPt}pt` }}
+                  className="text-slate-700"
+                >
                   {String(a.answer)}
                 </Markdown>
               )}
@@ -923,7 +953,6 @@ function PaperContent({
       ? paper.include_answers
       : Array.isArray(paper.answer_key) && paper.answer_key.length > 0;
   const answerShown =
-    answersVisible &&
     l.headings.answerKey &&
     Array.isArray(paper.answer_key) &&
     paper.answer_key.length > 0;

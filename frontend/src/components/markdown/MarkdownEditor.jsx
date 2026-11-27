@@ -63,6 +63,7 @@ export function MarkdownEditor({
   const [tableRows, setTableRows] = useState(3);
   const [tableCols, setTableCols] = useState(3);
   const [tableRange, setTableRange] = useState(null);
+  const [fontSizePt, setFontSizePt] = useState(12);
 
   const getSelection = () => {
     const el = taRef.current;
@@ -218,6 +219,30 @@ export function MarkdownEditor({
           <ToolbarButton title="আলাদা লাইনের গণিত ঢোকান" onClick={() => openMath(true)}>
             ∑<span className="ml-0.5 text-[9px] text-slate-400">▭</span>
           </ToolbarButton>
+          <span className="mx-0.5 h-4 w-px bg-slate-200" />
+          <input
+            type="number"
+            min="4"
+            max="48"
+            step="0.5"
+            value={fontSizePt}
+            onChange={(e) => setFontSizePt(e.target.value)}
+            title="নির্বাচিত অংশের আকার (পয়েন্ট)"
+            aria-label="নির্বাচিত অংশের আকার (পয়েন্ট)"
+            className="h-7 w-12 rounded-md border border-slate-300 bg-white px-1 text-center text-xs text-slate-700 focus:border-indigo-400 focus:outline-none"
+          />
+          <ToolbarButton
+            title="নির্বাচিত অংশের আকার পরিবর্তন করুন"
+            onClick={() =>
+              wrap(
+                `[[s=${clampSize(fontSizePt, 4, 48)}]]`,
+                '[[/s]]',
+                'নির্দিষ্ট আকারের লেখা'
+              )
+            }
+          >
+            pt
+          </ToolbarButton>
         </div>
 
         <div className="flex items-center rounded-md bg-slate-200/70 p-0.5 text-[11px] font-semibold text-slate-500">
@@ -365,7 +390,8 @@ export function MarkdownEditor({
 
       <div className="border-t border-slate-100 bg-slate-50/70 px-2 py-1 text-[11px] text-slate-400">
         মার্কডাউন সমর্থিত · এক লাইনের গণিত <code className="rounded bg-slate-100 px-1">$x^2$</code> ·
-        সারণির জন্য ▦ এবং গণিত সম্পাদকের জন্য ∑ ব্যবহার করুন
+        সারণির জন্য ▦, গণিতের জন্য ∑ এবং অংশের আকারের জন্য{' '}
+        <code className="rounded bg-slate-100 px-1">pt</code> ব্যবহার করুন
       </div>
     </div>
   );

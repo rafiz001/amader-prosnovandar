@@ -11,6 +11,7 @@ import {
   ConfirmDialog,
   ErrorBlock,
   Field,
+  Input,
   LoadingBlock,
   PageHeader,
   Select,
@@ -46,6 +47,8 @@ export function BackupPage() {
   const { data: classes, loading, error, reload } = useResource(() => API.classes.list(), []);
 
   const [classId, setClassId] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [busy, setBusy] = useState('');
   const [file, setFile] = useState(null);
   const [restoring, setRestoring] = useState(false);
@@ -54,14 +57,22 @@ export function BackupPage() {
   const fileRef = useRef(null);
 
   useEffect(() => {
-    if (!classes?.length) {
-      if (classId) setClassId('');
-      return;
-    }
-    if (!classes.some((cls) => String(cls.id) === classId)) {
-      setClassId(String(classes[0].id));
+    if (classId && classes && !classes.some((cls) => String(cls.id) === classId)) {
+      setClassId('');
     }
   }, [classes, classId]);
+
+  const selection = () => ({
+    ...(classId ? { class_id: Number(classId) } : { all_classes: true }),
+    ...(dateFrom ? { date_from: dateFrom } : {}),
+    ...(dateTo ? { date_to: dateTo } : {}),
+  });
+
+  const {
+    data: preview,
+    loading: previewLoading,
+    error: previewError,
+  } = useResource(() => API.backup.preview(selection()), [classId, dateFrom, dateTo]);
 
   const fullBackup = async () => {
     setBusy('full');
@@ -77,12 +88,17 @@ export function BackupPage() {
   };
 
   const classBackup = async () => {
-    if (!classId) return toast.error('প্রথমে একটি শ্রেণি নির্বাচন করুন');
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      return toast.error('শুরুর তারিখ শেষ তারিখের পরে হতে পারে না');
+    }
+    if (preview && preview.questions === 0) {
+      return toast.error('এই নির্বাচনে কোনো প্রশ্ন নেই');
+    }
     setBusy('class');
     try {
-      const backup = await API.backup.exportClass(Number(classId));
+      const backup = await API.backup.exportClass(selection());
       const path = await saveDownload(backup);
-      toast.success(path ? `ব্যাকআপ সংরক্ষিত হয়েছে: ${path}` : 'শ্রেণির ব্যাকআপ ডাউনলোড হয়েছে');
+      toast.success(path ? `ব্যাকআপ সংরক্ষিত হয়েছে: ${path}` : 'ব্যাকআপ ডাউনলোড হয়েছে');
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -119,7 +135,6 @@ export function BackupPage() {
   if (error) return <ErrorBlock error={error} onRetry={reload} />;
 
   const list = classes || [];
-  const selected = list.find((cls) => String(cls.id) === classId);
   const isSqliteFile = !!file && /\.(sqlite|db)$/i.test(file.name);
 
   return (
@@ -151,7 +166,7 @@ export function BackupPage() {
         <Card>
           <CardHeader
             title="শ্রেণিভিত্তিক ব্যাকআপ"
-            subtitle="একটি শ্রেণির বিষয়, অধ্যায়, প্রশ্নের ধরন ও প্রশ্ন"
+            subtitle="এক বা সব শ্রেণির প্রশ্ন; চাইলে তারিখের সীমা দিয়ে"
             icon="layers"
           />
           <div className="space-y-3 p-4 sm:p-5">
@@ -163,6 +178,7 @@ export function BackupPage() {
               <>
                 <Field label="শ্রেণি">
                   <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
+                    <option value="">সব শ্রেণি</option>
                     {list.map((cls) => (
                       <option key={cls.id} value={cls.id}>
                         {cls.name} · {bnNum(cls.subject_count)}টি বিষয়
@@ -170,13 +186,45 @@ export function BackupPage() {
                     ))}
                   </Select>
                 </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="তারিখ থেকে" hint="খালি = শুরুর সীমা নেই">
+                    <Input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="তারিখ পর্যন্ত" hint="খালি = শেষের সীমা নেই">
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                    />
+                  </Field>
+                </div>
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50/70 px-3 py-2 text-sm text-indigo-800">
+                  {previewError ? (
+                    <span className="text-rose-700">{previewError.message}</span>
+                  ) : previewLoading || !preview ? (
+                    'গণনা হচ্ছে…'
+                  ) : (
+                    <>
+                      এই নির্বাচনে <strong>{bnNum(preview.questions)}</strong>টি প্রশ্ন,{' '}
+                      {bnNum(preview.subjects)}টি বিষয় ও {bnNum(preview.classes)}টি শ্রেণি আছে।
+                    </>
+                  )}
+                </div>
                 <p className="text-xs text-slate-500">
-                  {selected
-                    ? `${bnNum(selected.subject_count)}টি বিষয় আছে। ব্যাকআপটি JSON ফাইলে সংরক্ষিত হবে।`
-                    : 'শ্রেণি নির্বাচন করুন।'}
+                  তারিখ যাচাইয়ে প্রশ্নের শেষ হালনাগাদের তারিখ (না থাকলে তৈরির তারিখ) ধরা হয়।
+                  ব্যাকআপটি JSON ফাইলে সংরক্ষিত হবে।
                 </p>
-                <Button icon="save" loading={busy === 'class'} onClick={classBackup}>
-                  শ্রেণির ব্যাকআপ সংরক্ষণ করুন
+                <Button
+                  icon="save"
+                  loading={busy === 'class'}
+                  onClick={classBackup}
+                  disabled={preview?.questions === 0}
+                >
+                  ব্যাকআপ সংরক্ষণ করুন
                 </Button>
               </>
             )}

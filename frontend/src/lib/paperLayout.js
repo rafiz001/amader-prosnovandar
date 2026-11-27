@@ -95,7 +95,8 @@ export const DEFAULT_LAYOUT = {
   orientation: 'portrait',
   columns: 1,
   margin: 14,
-  fontScale: 1,
+  questionFontPt: 10,
+  headerFontPt: 10.5,
   questionGap: 4,
   align: '',
   numberFormat: 'bangla',
@@ -123,6 +124,27 @@ export const DEFAULT_LAYOUT = {
     textSize: 96,
   },
 };
+
+export function paperFontSizes(layout = DEFAULT_LAYOUT) {
+  const source = layout && typeof layout === 'object' ? layout : {};
+  const positive = (value, fallback) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+  const questionPt = Math.min(
+    40,
+    Math.max(4, positive(source.questionFontPt, DEFAULT_LAYOUT.questionFontPt))
+  );
+  const headerPt = Math.min(
+    40,
+    Math.max(4, positive(source.headerFontPt, DEFAULT_LAYOUT.headerFontPt))
+  );
+  return {
+    questionPt,
+    headerPt,
+    titlePt: Math.round(headerPt * 1.4 * 10) / 10,
+  };
+}
 
 export function watermarkSettings(watermark) {
   const source = watermark && typeof watermark === 'object' ? watermark : {};

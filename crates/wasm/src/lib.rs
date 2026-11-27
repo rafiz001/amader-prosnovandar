@@ -89,6 +89,7 @@ fn is_write(op: &str) -> bool {
     !(op == "health"
         || op == "export"
         || op == "backup.export"
+        || op == "backup.preview"
         || op.ends_with(".list")
         || op.ends_with(".get"))
 }

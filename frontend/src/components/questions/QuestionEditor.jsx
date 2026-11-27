@@ -9,8 +9,10 @@ import { Icon } from '../Icon.jsx';
 import { MarkdownEditor } from '../markdown/MarkdownEditor.jsx';
 import { Button, Field, Input, LoadingBlock, Modal, Select } from '../ui/index.js';
 
-const clampScale = (value) =>
-  Math.min(3, Math.max(0.5, Math.round((Number(value) || 1) * 100) / 100));
+const clampPt = (value) =>
+  Math.min(48, Math.max(4, Math.round((Number(value) || 4) * 10) / 10));
+
+const DEFAULT_QUESTION_PT = 10;
 
 export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
   const toast = useToast();
@@ -36,7 +38,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
     marks: 1,
     difficulty: 'medium',
     lang: 'bn',
-    font_scale: 1,
+    font_pt: 0,
     align: '',
   };
 
@@ -70,7 +72,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
       marks: existing.marks ?? 1,
       difficulty: existing.difficulty || 'medium',
       lang: existing.lang || 'bn',
-      font_scale: Number(existing.font_scale) || 1,
+      font_pt: Number(existing.font_pt) || 0,
       align: existing.align || '',
     });
     setRemoveImage(false);
@@ -158,7 +160,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
       marks: Number.isFinite(marks) && marks >= 0 ? marks : 1,
       difficulty: form.difficulty,
       lang: form.lang,
-      font_scale: Number(form.font_scale) || 1,
+      font_pt: Number(form.font_pt) || 0,
       align: form.align || '',
     };
     if (kind === 'mcq') {
@@ -182,7 +184,7 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
     fd.append('marks', String(form.marks));
     fd.append('difficulty', form.difficulty);
     fd.append('lang', form.lang);
-    fd.append('font_scale', String(Number(form.font_scale) || 1));
+    fd.append('font_pt', String(Number(form.font_pt) || 0));
     fd.append('align', form.align || '');
 
     if (kind === 'mcq') {
@@ -484,10 +486,12 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
           {/* Typography */}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="লেখার আকার"
-              hint={`এই প্রশ্নের লেখা ${bnNum(
-                Math.round((Number(form.font_scale) || 1) * 100)
-              )}%`}
+              label="লেখার আকার (pt)"
+              hint={
+                Number(form.font_pt) > 0
+                  ? `এই প্রশ্নের লেখা ${bnNum(Number(form.font_pt))} pt`
+                  : 'স্বয়ংক্রিয় — প্রশ্নপত্রের সাধারণ আকার ব্যবহার হবে'
+              }
             >
               <div className="flex items-center gap-2">
                 <Button
@@ -495,32 +499,50 @@ export function QuestionEditor({ subjectId, questionId, onClose, onSaved }) {
                   size="sm"
                   variant="secondary"
                   onClick={() =>
-                    setForm((f) => ({
-                      ...f,
-                      font_scale: clampScale((Number(f.font_scale) || 1) - 0.05),
-                    }))
+                    setForm((f) => {
+                      const current =
+                        Number(f.font_pt) > 0
+                          ? Number(f.font_pt)
+                          : DEFAULT_QUESTION_PT;
+                      return { ...f, font_pt: clampPt(current - 0.5) };
+                    })
                   }
                   aria-label="লেখার আকার কমান"
                 >
                   −
                 </Button>
-                <span className="min-w-[3.5rem] text-center text-sm font-semibold text-slate-700">
-                  {bnNum(Math.round((Number(form.font_scale) || 1) * 100))}%
+                <span className="min-w-[4.5rem] text-center text-sm font-semibold text-slate-700">
+                  {Number(form.font_pt) > 0
+                    ? `${bnNum(Number(form.font_pt))} pt`
+                    : 'স্বয়ংক্রিয়'}
                 </span>
                 <Button
                   type="button"
                   size="sm"
                   variant="secondary"
                   onClick={() =>
-                    setForm((f) => ({
-                      ...f,
-                      font_scale: clampScale((Number(f.font_scale) || 1) + 0.05),
-                    }))
+                    setForm((f) => {
+                      const current =
+                        Number(f.font_pt) > 0
+                          ? Number(f.font_pt)
+                          : DEFAULT_QUESTION_PT;
+                      return { ...f, font_pt: clampPt(current + 0.5) };
+                    })
                   }
                   aria-label="লেখার আকার বাড়ান"
                 >
                   +
                 </Button>
+                {Number(form.font_pt) > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setForm((f) => ({ ...f, font_pt: 0 }))}
+                  >
+                    অটো
+                  </Button>
+                )}
               </div>
             </Field>
             <Field label="সারিবদ্ধতা" hint="প্রশ্নপত্রে এই প্রশ্নের লেখা কীভাবে সাজানো হবে">

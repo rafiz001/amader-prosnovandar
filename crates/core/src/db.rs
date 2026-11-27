@@ -22,6 +22,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "004_question_style.sql",
         include_str!("../../../migrations/004_question_style.sql"),
     ),
+    (
+        "005_question_font_pt.sql",
+        include_str!("../../../migrations/005_question_font_pt.sql"),
+    ),
 ];
 
 fn base_pragmas(conn: &Connection) -> Result<()> {

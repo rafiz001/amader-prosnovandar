@@ -152,21 +152,21 @@ fn question_style_roundtrip_and_update_in_place() {
             "subject_id": subject_id,
             "type_id": plain["id"],
             "text": "Write a paragraph.",
-            "font_scale": 1.4,
+            "font_pt": 14.0,
             "align": "justify"
         }),
     );
     let id = created["id"].as_i64().unwrap();
-    assert_eq!(created["font_scale"], 1.4);
+    assert_eq!(created["font_pt"], 14.0);
     assert_eq!(created["align"], "justify");
 
     let updated = call(
         &mut conn,
         "questions.update",
-        json!({ "id": id, "text": "Write a short paragraph.", "font_scale": 0.85, "align": "center" }),
+        json!({ "id": id, "text": "Write a short paragraph.", "font_pt": 9.5, "align": "center" }),
     );
     assert_eq!(updated["id"], id);
-    assert_eq!(updated["font_scale"], 0.85);
+    assert_eq!(updated["font_pt"], 9.5);
     assert_eq!(updated["align"], "center");
 
     let listed = call(
@@ -175,8 +175,150 @@ fn question_style_roundtrip_and_update_in_place() {
         json!({ "subject_id": subject_id }),
     );
     assert_eq!(listed["total"], 1);
-    assert_eq!(listed["items"][0]["font_scale"], 0.85);
+    assert_eq!(listed["items"][0]["font_pt"], 9.5);
     assert_eq!(listed["items"][0]["align"], "center");
+}
+
+#[test]
+fn backup_preview_and_scoped_date_filter() {
+    let mut conn = app();
+
+    let class_a = call(&mut conn, "classes.create", json!({ "name": "দশম" }));
+    let class_a_id = class_a["id"].as_i64().unwrap();
+    let subject_a = call(
+        &mut conn,
+        "subjects.create",
+        json!({ "class_id": class_a_id, "name": "গণিত" }),
+    );
+    let subject_a_id = subject_a["id"].as_i64().unwrap();
+    let plain_a = call(
+        &mut conn,
+        "types.list",
+        json!({ "subject_id": subject_a_id }),
+    )
+    .as_array()
+    .unwrap()
+    .iter()
+    .find(|t| t["kind"] == "text")
+    .unwrap()
+    .clone();
+    let q1 = call(
+        &mut conn,
+        "questions.create",
+        json!({ "subject_id": subject_a_id, "type_id": plain_a["id"], "text": "প্রশ্ন এক" }),
+    );
+    let q1_id = q1["id"].as_i64().unwrap();
+    let q2 = call(
+        &mut conn,
+        "questions.create",
+        json!({ "subject_id": subject_a_id, "type_id": plain_a["id"], "text": "প্রশ্ন দুই" }),
+    );
+    let q2_id = q2["id"].as_i64().unwrap();
+
+    let class_b = call(&mut conn, "classes.create", json!({ "name": "একাদশ" }));
+    let class_b_id = class_b["id"].as_i64().unwrap();
+    let subject_b = call(
+        &mut conn,
+        "subjects.create",
+        json!({ "class_id": class_b_id, "name": "পদার্থ" }),
+    );
+    let subject_b_id = subject_b["id"].as_i64().unwrap();
+    let plain_b = call(
+        &mut conn,
+        "types.list",
+        json!({ "subject_id": subject_b_id }),
+    )
+    .as_array()
+    .unwrap()
+    .iter()
+    .find(|t| t["kind"] == "text")
+    .unwrap()
+    .clone();
+    let q3 = call(
+        &mut conn,
+        "questions.create",
+        json!({ "subject_id": subject_b_id, "type_id": plain_b["id"], "text": "প্রশ্ন তিন" }),
+    );
+    let q3_id = q3["id"].as_i64().unwrap();
+
+    conn.execute(
+        "UPDATE questions SET created_at='2024-01-10 09:00:00', updated_at=NULL WHERE id=?",
+        [q1_id],
+    )
+    .unwrap();
+    conn.execute(
+        "UPDATE questions SET created_at='2024-01-01 09:00:00', updated_at='2024-03-05 09:00:00' WHERE id=?",
+        [q2_id],
+    )
+    .unwrap();
+    conn.execute(
+        "UPDATE questions SET created_at='2024-02-20 09:00:00', updated_at=NULL WHERE id=?",
+        [q3_id],
+    )
+    .unwrap();
+
+    let all = call(
+        &mut conn,
+        "backup.preview",
+        json!({ "scope": "class", "all_classes": true }),
+    );
+    assert_eq!(all["questions"], 3);
+    assert_eq!(all["classes"], 2);
+
+    // q2 falls in March because updated_at wins over created_at.
+    let january = call(
+        &mut conn,
+        "backup.preview",
+        json!({
+            "scope": "class",
+            "all_classes": true,
+            "date_from": "2024-01-01",
+            "date_to": "2024-01-31"
+        }),
+    );
+    assert_eq!(january["questions"], 1);
+
+    let feb_onwards = call(
+        &mut conn,
+        "backup.preview",
+        json!({
+            "scope": "class",
+            "class_ids": [class_a_id],
+            "date_from": "2024-02-01",
+            "date_to": "2024-12-31"
+        }),
+    );
+    assert_eq!(feb_onwards["questions"], 1);
+    assert_eq!(feb_onwards["classes"], 1);
+
+    let exported = call(
+        &mut conn,
+        "backup.export",
+        json!({ "scope": "class", "class_ids": [class_a_id] }),
+    );
+    let doc: Value =
+        serde_json::from_slice(&base64_decode(exported["data_base64"].as_str().unwrap())).unwrap();
+    assert_eq!(doc["classes"].as_array().unwrap().len(), 1);
+    assert_eq!(doc["backup"]["scope"], "class");
+    assert_eq!(
+        doc["classes"][0]["subjects"][0]["questions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    let empty = call(
+        &mut conn,
+        "backup.preview",
+        json!({
+            "scope": "class",
+            "class_ids": [class_a_id],
+            "date_from": "2025-01-01",
+            "date_to": "2025-12-31"
+        }),
+    );
+    assert_eq!(empty["questions"], 0);
 }
 
 #[test]
